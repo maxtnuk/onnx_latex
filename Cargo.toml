@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "data",
+    "linalg",
+    "core",
+    "hir",
+    "nnef",
+    "onnx-opl",
+    "onnx",
+    "examples/pytorch-resnet"
+]
+
+[profile.release]
+lto = true
+
+[profile.bench]
+debug = true
+
+[profile.dev.package."*"]
+opt-level = 3
