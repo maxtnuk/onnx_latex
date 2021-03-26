@@ -1,39 +1,41 @@
 use tract_ndarray::Array;
 use tract_onnx::prelude::*;
+use tract_onnx::latex_tool::*;
+use rand::prelude::*;
 
 fn main() -> TractResult<()> {
     let model = tract_onnx::onnx()
         // load the model
-        .model_for_path("resnet.onnx")?
+        .model_for_path("l2s.onnx")?
         // specify input type and shape
-        .with_input_fact(0, InferenceFact::dt_shape(f32::datum_type(), tvec!(1, 3, 224, 224)))?
+        .with_input_fact(0, InferenceFact::dt_shape(f32::datum_type(), tvec!(64, 1000)))?
         // optimize the model
-        .into_optimized()?
         // make the model runnable and fix its inputs and outputs
         .into_runnable()?;
+    let mut rng = thread_rng();
+    let vals: Vec<_> = (0..64000).map(|_| rng.gen::<f32>()).collect();
+    let input = tract_ndarray::arr1(&vals).into_shape((64, 1000)).unwrap();
+    let result=parse_plan(&model, tvec![input.into()],ParseMode::Brief);
 
-    // Imagenet mean and standard deviation
-    let mean = Array::from_shape_vec((1, 3, 1, 1), vec![0.485, 0.456, 0.406])?;
-    let std = Array::from_shape_vec((1, 3, 1, 1), vec![0.229, 0.224, 0.225])?;
+    for i in 0..model.model().nodes.len(){
+        println!("form: {}",result.get_node_formul(i));
+    }
 
-    let img = image::open("elephants.jpg").unwrap().to_rgb8();
-    let resized = image::imageops::resize(&img, 224, 224, ::image::imageops::FilterType::Triangle);
-    let image: Tensor =
-        ((tract_ndarray::Array4::from_shape_fn((1, 3, 224, 224), |(_, c, y, x)| {
-            resized[(x as _, y as _)][c] as f32 / 255.0
-        }) - mean)
-            / std)
-            .into();
-
-    let result = model.run(tvec!(image))?;
-
-    // find and display the max value with its index
-    let best = result[0]
-        .to_array_view::<f32>()?
-        .iter()
-        .cloned()
-        .zip(1..)
-        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-    println!("result: {:?}", best);
+    // for n in model.model().nodes(){
+    //     let op_name=n.op().name();
+    //     let node_name= n.name.clone();
+    //     println!("id: {}",n.id);
+    //     println!("inputs: ");
+    //     for i in n.inputs.iter(){
+    //         print!(" {:?}",i);
+    //         let fact=model.model().outlet_fact(*i).unwrap();
+    //         println!("shape: {:?}",fact.shape.clone());
+    //         println!("value: {:?}",fact.value.clone());
+    //     }   
+    //     println!();
+    //     println!("node name: {}", node_name);
+    //     println!("op name: {}", op_name);
+    //     println!();
+    // }
     Ok(())
 }

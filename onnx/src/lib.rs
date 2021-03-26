@@ -14,6 +14,9 @@ pub extern crate tract_hir;
 pub mod model;
 pub mod ops;
 
+#[cfg(feature="latex")]
+pub mod latex_tool;
+
 pub mod pb {
     include!(concat!(env!("OUT_DIR"), "/prost/onnx.rs"));
 }
