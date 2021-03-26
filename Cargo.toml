@@ -7,7 +7,8 @@ members = [
     "nnef",
     "onnx-opl",
     "onnx",
-    "examples/pytorch-resnet"
+    "examples/pytorch-resnet",
+    "latex_gen"
 ]
 
 [profile.release]
