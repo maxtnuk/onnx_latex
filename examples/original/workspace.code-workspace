@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"name": "onnx_parser",
+			"path": "../.."
+		}
+	],
+	"settings": {
+		"python.pythonPath": "/Users/maxtnuk/opt/anaconda3/envs/myenv/bin/python"
+	}
+}

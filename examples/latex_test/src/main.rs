@@ -15,7 +15,9 @@ fn main() -> TractResult<()> {
     let mut rng = thread_rng();
     let vals: Vec<_> = (0..64000).map(|_| rng.gen::<f32>()).collect();
     let input = tract_ndarray::arr1(&vals).into_shape((64, 1000)).unwrap();
-    let result=parse_plan(&model, tvec![input.into()],ParseMode::Brief);
+    let mut engine=LatexEngine::new();
+
+    let result=engine.parse_plan(&model, tvec![input.into()],ParseMode::Full);
 
     for i in 0..model.model().nodes.len(){
         println!("form: {}",result.get_node_formul(i));

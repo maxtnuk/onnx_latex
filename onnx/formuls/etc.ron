@@ -1,0 +1,18 @@
+(
+    symbol: "c",
+    n_type: "base",
+    entries: {
+        "Const.bias": (
+            symbol: "B"
+        ),
+        "Const.weight" :(
+            symbol: "W"
+        ),
+        "Const.etc" :(
+            symbol: "E"
+        ),
+        "Source" :(
+            symbol: "Source"
+        )
+    }
+)

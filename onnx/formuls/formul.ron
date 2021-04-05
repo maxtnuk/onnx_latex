@@ -1,0 +1,11 @@
+(
+    symbol: "f",
+    n_type: "function",
+    entries: {
+        "Gemm": (
+            inputs: 3,
+            formul: "{#}\cdot {#}+{#}",
+            diff: "#"
+        )
+    }
+)

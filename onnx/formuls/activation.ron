@@ -1,0 +1,16 @@
+(
+    symbol: "h",
+    n_type: "activation",
+    entries: {
+        "Sigmoid":(
+            inputs: 1,
+            formul: "frac{#}{1+e^{-(#)}}",
+            diff: "$(1-$)"
+        ),
+        "Clip":(
+            inputs: 3,
+            formul: "between(#,#,#)",
+            diff: "bt(0,&)"
+        )
+    }
+)
