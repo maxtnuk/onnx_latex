@@ -5,7 +5,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::fmt::Debug;
 
-use self::node_info::{Formul, FormulNode};
+use self::node_info::{Formul, FormulKind, FormulNode};
 
 mod node_info;
 
@@ -36,6 +36,7 @@ pub struct LatexNode {
     pub symbol: String,
     pub value: String,
     pub shape: String,
+    pub prefix: String,
 }
 
 #[derive(Default, Clone)]
@@ -47,20 +48,21 @@ pub struct SymbolLibrary {
 
 impl SymbolLibrary {
     fn new() -> Self {
-        let func_info = node_info::read_ron("formuls/formul.ron").expect("formul error");
-        let etc_info = node_info::read_ron("formuls/etc.ron").expect("etc error");
-        let activation_info = node_info::read_ron("formuls/activation.ron").expect("activation error");
+        // println!("{}",concat!(env!("OUT_DIR"), "/formuls/formul.ron"));
+        let func_info = node_info::read_ron(concat!(env!("CARGO_MANIFEST_DIR"), "/formuls/formul.ron")).expect("formul error");
+        let etc_info = node_info::read_ron(concat!(env!("CARGO_MANIFEST_DIR"), "/formuls/etc.ron")).expect("etc error");
+        let activation_info = node_info::read_ron(concat!(env!("CARGO_MANIFEST_DIR"), "/formuls/activation.ron")).expect("activation error");
         SymbolLibrary {
             func: func_info,
             etc: etc_info,
             activation: activation_info,
         }
     }
-    pub fn get_symbol(&self, target: String) -> Option<(String, FormulNode)> {
+    // (symbol,form)
+    pub fn get_symbol(&self, target: String) -> Option<(String,FormulKind, FormulNode)> {
         let form = [&self.func, &self.etc, &self.activation];
         form.iter()
-            .filter(|x| x.entries.contains_key(&target)|| x.entries.iter().any(|(_,f)| f.symbol.is_some()))
-            .map(|x| (x.n_type.clone(), x.entries.get(&target).unwrap().clone()))
+            .filter_map(|x| x.gen_symbol(&target).ok())
             .next()
     }
 }
@@ -120,7 +122,7 @@ impl LatexEngine {
 
         for (step, n) in plan.order.iter().enumerate() {
             let node = model.node(*n);
-            // println!("node {}",*n);
+            println!("node {}",*n);
             self.configure_node(node, *n);
 
             let op_name = node.op().name();
@@ -136,11 +138,12 @@ impl LatexEngine {
                 let prec = values[i.node].as_ref().ok_or_else(|| "error").unwrap();
                 inputs.push(prec[i.slot].clone().into())
             }
-            let form_node=self.symbol_library.get_symbol(op_name.to_string());
+            println!("opname {}",op_name);
+            let form=self.symbol_map[*n].clone().unwrap();
 
             let f_string=match mode{
                 ParseMode::Brief=>{
-                    self.parse_symbol(form_node.unwrap().1.formul, *n, input_ids.clone())
+                    self.parse_symbol(form.prefix, *n, input_ids.clone())
                 },
                 ParseMode::Full =>{
                     self.rec_node(node, model)
@@ -180,35 +183,47 @@ impl LatexEngine {
         let n = node.id;
         let n_name = node.op().name();
 
-        if let Some((_, f)) = self.symbol_library.get_symbol(n_name.to_string()) {
+        if let Some((_,_, f)) = self.symbol_library.get_symbol(n_name.to_string()) {
             self.raw_parse_symbol(f.formul, n, ins)
         } else {
             "".to_string()
         }
     }
-    fn create_new_symbol(&mut self, symbol: String, which: String) -> String {
-        match which.as_ref() {
-            "activation" => {
+    fn create_new_symbol(&mut self, symbol: String, which: FormulKind,extra_type: Option<String>) -> String {
+        match which {
+            FormulKind::Activation => {
                 self.activation_count += 1;
                 format!("{}_{}", symbol, self.activation_count - 1)
             },
-            "function" => {
+            FormulKind::Function => {
                 self.formul_count += 1;
                 format!("{}_{}", symbol, self.formul_count - 1)
             },
-            x @ _ => {
-                let tt = match x {
-                    "bias" => {
-                        self.bias_count += 1;
-                        self.bias_count
+            FormulKind::Base => {
+                let sharp_split: Vec<&str>= symbol.split("#").collect();
+                if let Some(x) =extra_type {
+                    let tt=match x.as_ref() {
+                        "bias" => {
+                            self.bias_count += 1;
+                            self.bias_count
+                        }
+                        "weight" => {
+                            self.weight_count += 1;
+                            self.weight_count
+                        }
+                        _ => 1,
+                    };
+                    if sharp_split.len() > 1{
+                        format!("{}{}{}", sharp_split[0], tt - 1,sharp_split[1])
+                    }else{
+                        format!("{}_{}", sharp_split[0], tt - 1)
                     }
-                    "weight" => {
-                        self.weight_count += 1;
-                        self.weight_count
-                    }
-                    _ => 1,
-                };
-                format!("\\overline{{{}_{}}}", symbol, tt - 1)
+                }else{
+                    format!("{}", sharp_split[0])   
+                }
+            },
+            _ =>{
+                "".to_owned()
             }
         }
     }
@@ -220,18 +235,20 @@ impl LatexEngine {
         let n_name = node.name.clone();
         let n_name_split: Vec<&str> = n_name.split(".").collect();
         let op_name = node.op().name();
-        let form_node = if n_name_split.len() > 1 {
-            let temp = op_name + "." + n_name_split[1];
-            self.symbol_library.get_symbol(temp.to_string())
-        } else {
-            self.symbol_library.get_symbol(op_name.to_string())
-        };
+        // println!("node id: {}",node.id);
 
-        //  gen symbol
-        if let Some((which, form)) = form_node {
-            result.symbol = self.create_new_symbol(form.symbol.unwrap(), which);
-            self.symbol_map[index] = Some(result.clone());
+        // find symbol
+        if let Some((symbol,n_type,form))=self.symbol_library.get_symbol(op_name.to_string()){
+            result.symbol = self.create_new_symbol(symbol.clone(),n_type.clone(),None);
+            result.prefix=form.formul;
+        }else{
+            let temp = op_name + "." + n_name_split[1];
+            if let Some((symbol,n_type,form))=self.symbol_library.get_symbol(temp.to_string()){
+                result.symbol = self.create_new_symbol(symbol.clone(),n_type.clone(),Some(n_name_split[1].to_string()));
+                result.prefix=form.formul;
+            }
         }
+        self.symbol_map[index] = Some(result.clone());
     }
     fn insert_parts(&self, splits: Vec<&str>, inputs: InputsType) -> String {
         let mut temp = String::new();
@@ -255,7 +272,12 @@ impl LatexEngine {
         let temp_split: Vec<&str> = ori_copy.split('#').collect();
 
         if temp_split.len() > 0 {
-            ori_copy = self.insert_parts(temp_split, InputsType::Multi(inputs));
+            if temp_split.len()!=inputs.len(){
+                let t:Vec<String>=inputs.iter().cycle().cloned().take(temp_split.len()).collect();
+                ori_copy = self.insert_parts(temp_split, InputsType::Multi(t));
+            }else{
+                ori_copy = self.insert_parts(temp_split, InputsType::Multi(inputs));
+            }
         }
 
         // $ part

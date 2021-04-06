@@ -1,18 +1,18 @@
 (
     symbol: "c",
-    n_type: "base",
+    n_type: Base,
     entries: {
         "Const.bias": (
-            symbol: "B"
+            symbol: Some("\\overline{B_#}")
         ),
         "Const.weight" :(
-            symbol: "W"
+            symbol: Some("\\overline{W_#}")
         ),
         "Const.etc" :(
-            symbol: "E"
+            symbol: Some("\\overline{E_#}")
         ),
         "Source" :(
-            symbol: "Source"
+            symbol: Some("\\overline{Input}")
         )
     }
 )
