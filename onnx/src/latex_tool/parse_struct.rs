@@ -255,7 +255,7 @@ pub fn root<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
         sp,
         alt((
             map(hash, JsonValue::Object),
-            map(tuple_it, JsonValue::Array),
+            map(tuple_it, JsonValue::Tuple),
         )),
         opt(sp),
     )(i)
@@ -264,6 +264,13 @@ pub fn root<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 #[test]
 fn raw_test() {
     let t = r#"Test { c: [None, Some(2), Some("hello")], b: Hello { a: 20, b: "to" } }"#;
+    let result = root::<(&str, ErrorKind)>(t);
+    println!("{:?}", result);
+    assert!(result.is_ok());
+}
+#[test]
+fn undefined_test() {
+    let t = r#"Test(asdfasdf)"#;
     let result = root::<(&str, ErrorKind)>(t);
     println!("{:?}", result);
     assert!(result.is_ok());
