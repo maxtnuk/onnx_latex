@@ -2,11 +2,16 @@ use ron::Value;
 use tract_hir::internal::{OpState, SessionState};
 
 use crate::{prelude::*, tract_hir::infer::InferenceOp};
-use std::{borrow::Cow, collections::{BTreeMap, HashMap}, fmt::Display};
-use std::hash::Hash;
+use nom::error::ErrorKind;
 use std::fmt::Debug;
+use std::hash::Hash;
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+    fmt::Display,
+};
 
-use self::node_info::{Formul, FormulKind, FormulNode};
+use self::{node_info::{Formul, FormulKind, FormulNode}, parse_struct::{JsonValue, insert_symbol_parts, op_parse, symbol_split}};
 
 mod node_info;
 mod parse_struct;
@@ -40,7 +45,7 @@ pub struct LatexNode {
     pub shape: String,
     pub prefix: String,
     pub backward: String,
-    pub op_attributes: BTreeMap<String,String>
+    pub op_attributes: JsonValue,
 }
 
 #[derive(Default, Clone)]
@@ -53,9 +58,16 @@ pub struct SymbolLibrary {
 impl SymbolLibrary {
     fn new() -> Self {
         // println!("{}",concat!(env!("OUT_DIR"), "/formuls/formul.ron"));
-        let func_info = node_info::read_ron(concat!(env!("CARGO_MANIFEST_DIR"), "/formuls/formul.ron")).expect("formul error");
-        let etc_info = node_info::read_ron(concat!(env!("CARGO_MANIFEST_DIR"), "/formuls/etc.ron")).expect("etc error");
-        let activation_info = node_info::read_ron(concat!(env!("CARGO_MANIFEST_DIR"), "/formuls/activation.ron")).expect("activation error");
+        let func_info =
+            node_info::read_ron(concat!(env!("CARGO_MANIFEST_DIR"), "/formuls/formul.ron"))
+                .expect("formul error");
+        let etc_info = node_info::read_ron(concat!(env!("CARGO_MANIFEST_DIR"), "/formuls/etc.ron"))
+            .expect("etc error");
+        let activation_info = node_info::read_ron(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/formuls/activation.ron"
+        ))
+        .expect("activation error");
         SymbolLibrary {
             func: func_info,
             etc: etc_info,
@@ -63,7 +75,7 @@ impl SymbolLibrary {
         }
     }
     // (symbol,form)
-    pub fn get_symbol(&self, target: String) -> Option<(String,FormulKind, FormulNode)> {
+    pub fn get_symbol(&self, target: String) -> Option<(String, FormulKind, FormulNode)> {
         let form = [&self.func, &self.etc, &self.activation];
         form.iter()
             .filter_map(|x| x.gen_symbol(&target).ok())
@@ -143,21 +155,16 @@ impl LatexEngine {
                 inputs.push(prec[i.slot].clone().into())
             }
             // println!("opname {}",op_name);
-            let form=self.symbol_map[*n].clone().unwrap();
+            let form = self.symbol_map[*n].clone().unwrap();
 
-            let f_string=match mode{
-                ParseMode::Brief=>{
-                    self.parse_symbol(form.prefix, *n, input_ids.clone())
-                },
-                ParseMode::Full =>{
-                    self.rec_node(node, model)
-                }
+            let f_string = match mode {
+                ParseMode::Brief => self.parse_symbol(form.prefix, *n, input_ids.clone()),
+                ParseMode::Full => self.rec_node(node, model),
             };
             if let Some(ref mut x) = self.symbol_map[*n] {
                 x.inputs = input_ids.clone();
-                x.value=f_string;
+                x.value = f_string;
             }
-            
 
             // node formul
 
@@ -187,26 +194,31 @@ impl LatexEngine {
         let n = node.id;
         let n_name = node.op().name();
 
-        if let Some((_,_, f)) = self.symbol_library.get_symbol(n_name.to_string()) {
+        if let Some((_, _, f)) = self.symbol_library.get_symbol(n_name.to_string()) {
             self.raw_parse_symbol(f.formul, n, ins)
         } else {
             "".to_string()
         }
     }
-    fn create_new_symbol(&mut self, symbol: String, which: FormulKind,extra_type: Option<String>) -> String {
+    fn create_new_symbol(
+        &mut self,
+        symbol: String,
+        which: FormulKind,
+        extra_type: Option<String>,
+    ) -> String {
         match which {
             FormulKind::Activation => {
                 self.activation_count += 1;
                 format!("{}_{}", symbol, self.activation_count - 1)
-            },
+            }
             FormulKind::Function => {
                 self.formul_count += 1;
                 format!("{}_{}", symbol, self.formul_count - 1)
-            },
+            }
             FormulKind::Base => {
-                let sharp_split: Vec<&str>= symbol.split("#").collect();
-                if let Some(x) =extra_type {
-                    let tt=match x.as_ref() {
+                let sharp_split: Vec<&str> = symbol.split("#").collect();
+                if let Some(x) = extra_type {
+                    let tt = match x.as_ref() {
                         "bias" => {
                             self.bias_count += 1;
                             self.bias_count
@@ -217,21 +229,19 @@ impl LatexEngine {
                         }
                         _ => 1,
                     };
-                    if sharp_split.len() > 1{
-                        format!("{}{}{}", sharp_split[0], tt - 1,sharp_split[1])
-                    }else{
+                    if sharp_split.len() > 1 {
+                        format!("{}{}{}", sharp_split[0], tt - 1, sharp_split[1])
+                    } else {
                         format!("{}_{}", sharp_split[0], tt - 1)
                     }
-                }else{
-                    format!("{}", sharp_split[0])   
+                } else {
+                    format!("{}", sharp_split[0])
                 }
-            },
-            _ =>{
-                "".to_owned()
             }
+            _ => "".to_owned(),
         }
     }
-    pub fn configure_node(&mut self, node: &InferenceNode, index: usize){
+    pub fn configure_node(&mut self, node: &InferenceNode, index: usize) {
         if self.symbol_map[index].is_some() {
             return;
         }
@@ -241,15 +251,25 @@ impl LatexEngine {
         let op_name = node.op().name();
         // println!("node id: {}",node.id);
 
+        let debug_op = format!("{:?}", node.op());
+        if let Ok((s, inner)) = op_parse::<(&str, ErrorKind)>(debug_op.as_str()) {
+            result.op_attributes = inner;
+        } else {
+            result.op_attributes = JsonValue::Undefined("".to_owned());
+        }
         // find symbol
-        if let Some((symbol,n_type,form))=self.symbol_library.get_symbol(op_name.to_string()){
-            result.symbol = self.create_new_symbol(symbol.clone(),n_type.clone(),None);
-            result.prefix=form.formul;
-        }else{
+        if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(op_name.to_string()) {
+            result.symbol = self.create_new_symbol(symbol.clone(), n_type.clone(), None);
+            result.prefix = form.formul;
+        } else {
             let temp = op_name + "." + n_name_split[1];
-            if let Some((symbol,n_type,form))=self.symbol_library.get_symbol(temp.to_string()){
-                result.symbol = self.create_new_symbol(symbol.clone(),n_type.clone(),Some(n_name_split[1].to_string()));
-                result.prefix=form.formul;
+            if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(temp.to_string()) {
+                result.symbol = self.create_new_symbol(
+                    symbol.clone(),
+                    n_type.clone(),
+                    Some(n_name_split[1].to_string()),
+                );
+                result.prefix = form.formul;
             }
         }
         self.symbol_map[index] = Some(result.clone());
@@ -271,27 +291,52 @@ impl LatexEngine {
     }
     //  # input,$ self, @: attribute
     fn raw_parse_symbol(&self, original: String, origin: usize, inputs: Vec<String>) -> String {
-        let mut ori_copy = original.clone();
+        let sym_node = self.symbol_map[origin].clone().unwrap();
 
-        // #part
-        let temp_split: Vec<&str> = ori_copy.split('#').collect();
 
-        if temp_split.len() > 0 {
-            if temp_split.len()!=inputs.len(){
-                let t:Vec<String>=inputs.iter().cycle().cloned().take(temp_split.len()).collect();
-                ori_copy = self.insert_parts(temp_split, InputsType::Multi(t));
-            }else{
-                ori_copy = self.insert_parts(temp_split, InputsType::Multi(inputs));
+        let splits=symbol_split(original.as_str()).unwrap();
+
+        let attributes:Vec<String>= match sym_node.op_attributes{
+            JsonValue::Tuple(v) =>{
+                v.iter().map(|s|s.shallow_to_string()).collect()
+            },
+            JsonValue::Object(v) =>{
+                v.iter().map(|(l,a)| "".to_string()+l+":"+&a.shallow_to_string() ).collect()
+            },
+            _=> {
+                Vec::new()
             }
-        }
-
-        // $ part
+        };
         let s_name = self.symbol_map[origin].clone().unwrap().symbol.clone();
-        let self_split: Vec<&str> = ori_copy.split('$').collect();
-        if self_split.len() > 0 {
-            ori_copy = self.insert_parts(self_split, InputsType::Single(s_name));
-        }
-        ori_copy
+
+        let parsing_result=insert_symbol_parts(splits,inputs,attributes,s_name);
+
+
+        // // #part
+        // let temp_split: Vec<&str> = ori_copy.split('#').collect();
+
+        // if temp_split.len() > 0 {
+        //     if temp_split.len() != inputs.len() {
+        //         let t: Vec<String> = inputs
+        //             .iter()
+        //             .cycle()
+        //             .cloned()
+        //             .take(temp_split.len())
+        //             .collect();
+        //         ori_copy = self.insert_parts(temp_split, InputsType::Multi(t));
+        //     } else {
+        //         ori_copy = self.insert_parts(temp_split, InputsType::Multi(inputs));
+        //     }
+        // }
+
+        // // $ part
+        
+        // let self_split: Vec<&str> = ori_copy.split('$').collect();
+        // if self_split.len() > 0 {
+        //     ori_copy = self.insert_parts(self_split, InputsType::Single(s_name));
+        // }
+        // ori_copy
+        parsing_result
     }
 
     fn parse_symbol(&self, original: String, origin: usize, inputs: Vec<usize>) -> String {

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use nom::error::{context, convert_error, ContextError, ErrorKind, ParseError, VerboseError};
+use nom::{combinator::map_res, error::{context, convert_error, ContextError, ErrorKind, ParseError, VerboseError}, number::complete::{be_u32, be_u8}};
 use nom::{
     branch::alt,
     bytes::complete::{escaped, tag, take, take_until, take_while},
@@ -15,6 +15,7 @@ use nom::{
     sequence::{delimited, preceded, separated_pair, terminated, tuple},
     switch, IResult,
 };
+use nom::number::complete::u8 as u_8;
 
 type Vss<'a> = Vec<(&'a str, &'a str)>;
 
@@ -22,7 +23,22 @@ pub fn symbol_split(input: &str) -> IResult<&str, Vss> {
     many0(tuple((take_while(|ch| !"#$@".contains(ch)), take(3usize))))(input)
 }
 
-pub fn insert_parts(
+enum SymbolWhich{
+  Input(usize),
+  Attribute(usize),
+  SelfName(usize)
+}
+
+fn from_num(input: &str) -> Result<u8, std::num::ParseIntError> {
+  u8::from_str_radix(input, 10)
+}
+fn num_primary(input: &str) -> IResult<&str, u8> {
+  map_res(
+    take(1usize),
+    from_num
+  )(input)
+}
+pub fn insert_symbol_parts(
     original: (&str, Vss),
     x_in: Vec<String>,
     a_in: Vec<String>,
@@ -30,16 +46,24 @@ pub fn insert_parts(
 ) -> String {
     let mut result = String::new();
     for (key, symbol) in original.1.iter() {
-        let num: usize = if let Ok(s) = symbol.chars().nth(2).unwrap().to_string().parse() {
-            s
-        } else {
-            0
-        };
-        let to_insert = match symbol.chars().nth(0).unwrap() {
-            '#' => x_in[num].as_str(),
-            '@' => a_in[num].as_str(),
-            '$' => s_in.as_str(),
-            _ => "",
+        let parse_result=alt(
+          (
+            preceded(tag("#_"),map(num_primary,|s:u8| SymbolWhich::Input(s as usize))),
+            preceded(tag("@_"),map(num_primary,|s:u8| SymbolWhich::Attribute(s as usize))),
+            preceded(tag("$_"),map(num_primary,|s:u8| SymbolWhich::SelfName(s as usize))),
+          )
+        )(*symbol);
+
+        let to_insert = match parse_result.unwrap().1 {
+            SymbolWhich::Input(u ) =>{
+              x_in[u].as_str()
+            },
+            SymbolWhich::Attribute(u) =>{
+              a_in[u].as_str()
+            },
+            SymbolWhich::SelfName(s) => {
+              s_in.as_str()
+            }
         };
         result += &(key.to_string() + to_insert);
     }
@@ -48,7 +72,7 @@ pub fn insert_parts(
 }
 // parse debug section
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq,Clone)]
 pub enum JsonValue {
     Str(String),
     Boolean(bool),
@@ -57,6 +81,40 @@ pub enum JsonValue {
     Object(HashMap<String, JsonValue>),
     Tuple(Vec<JsonValue>),
     Undefined(String),
+}
+
+impl JsonValue{
+  pub fn shallow_to_string(&self) -> String {
+      match self{
+          JsonValue::Str(ref s) => {s.clone()}
+          JsonValue::Boolean(b) => {b.to_string()}
+          JsonValue::Num(n) => {n.to_string()}
+          JsonValue::Array(a) => {
+            let mut result= "[ ".to_string();
+            for i in a.iter(){
+              result+=&i.shallow_to_string();
+              result+=", ";
+            }
+            result+="]";
+            result
+          }
+          JsonValue::Object(a) => {
+            "".to_string()
+          }
+          JsonValue::Tuple(_) => {
+            "".to_string()
+          }
+          JsonValue::Undefined(s) => {
+            s.clone()
+          }
+      }
+  }
+}
+
+impl Default for JsonValue{
+  fn default() -> Self {
+      JsonValue::Undefined("".to_string())
+  }
 }
 /// parser combinators are constructed from the bottom up:
 /// first we write parsers for the smallest elements (here a space character),
@@ -248,7 +306,7 @@ fn json_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 }
 
 /// the root element of a JSON parser is either an object or an array
-pub fn root<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+pub fn op_parse<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, JsonValue, E> {
     delimited(
@@ -264,14 +322,14 @@ pub fn root<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 #[test]
 fn raw_test() {
     let t = r#"Test { c: [None, Some(2), Some("hello")], b: Hello { a: 20, b: "to" } }"#;
-    let result = root::<(&str, ErrorKind)>(t);
+    let result = op_parse::<(&str, ErrorKind)>(t);
     println!("{:?}", result);
     assert!(result.is_ok());
 }
 #[test]
 fn undefined_test() {
     let t = r#"Test(asdfasdf)"#;
-    let result = root::<(&str, ErrorKind)>(t);
+    let result = op_parse::<(&str, ErrorKind)>(t);
     println!("{:?}", result);
     assert!(result.is_ok());
 }
