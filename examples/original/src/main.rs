@@ -24,14 +24,14 @@ fn main() -> TractResult<()> {
         let op_name=n.op().name();
         let node_name= n.name.clone();
         println!("id: {}",n.id);
+        println!("op options {:?}",n.op());
         println!("inputs: ");
         for i in n.inputs.iter(){
             print!(" {:?}",i);
             let fact=model.model().outlet_fact(*i).unwrap();
             println!("shape: {:?}",fact.shape.clone());
             println!("value: {:?}",fact.value.clone());
-        }   
-        println!();
+        }
         println!("node name: {}", node_name);
         println!("op name: {}", op_name);
         println!();

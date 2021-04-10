@@ -4,13 +4,13 @@
     entries: {
         "Sigmoid":(
             inputs: 1,
-            formul: "\\frac{1}{1+e^{-(#)}}",
-            diff: Some("$(1-$)")
+            formul: "\\frac{1}{1+e^{-(#_0)}}",
+            diff: Some("$_0(1-$_0)")
         ),
         "Clip":(
             inputs: 1,
-            formul: "max(0,#)",
-            diff: Some("bt(0,&)")
+            formul: "min(max(#_0,@_0),@_1)",
+            diff: Some("bt(#_0,#_0)")
         )
     }
 )

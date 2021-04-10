@@ -3,13 +3,13 @@
     n_type: Base,
     entries: {
         "Const.bias": (
-            symbol: Some("\\overline{B_#}")
+            symbol: Some("\\overline{B_#_0}")
         ),
         "Const.weight" :(
-            symbol: Some("\\overline{W_#}")
+            symbol: Some("\\overline{W_#_0}")
         ),
         "Const.etc" :(
-            symbol: Some("\\overline{E_#}")
+            symbol: Some("\\overline{E_#_0}")
         ),
         "Source" :(
             symbol: Some("\\overline{Input}")

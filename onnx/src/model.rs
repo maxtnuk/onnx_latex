@@ -119,6 +119,8 @@ impl<'a> ParsingContext<'a> {
                     vec![],
                 ),
             };
+
+            
             let id = model.add_node(name, op, facts)?;
             for (ix, output) in pbnode.output.iter().filter(|s| !s.is_empty()).enumerate() {
                 outlets_by_name.insert(output.to_owned(), OutletId::new(id, ix));

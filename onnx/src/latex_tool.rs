@@ -1,13 +1,15 @@
+use ron::Value;
 use tract_hir::internal::{OpState, SessionState};
 
 use crate::{prelude::*, tract_hir::infer::InferenceOp};
-use std::fmt::Display;
+use std::{borrow::Cow, collections::{BTreeMap, HashMap}, fmt::Display};
 use std::hash::Hash;
 use std::fmt::Debug;
 
 use self::node_info::{Formul, FormulKind, FormulNode};
 
 mod node_info;
+mod parse_struct;
 
 type InferenceNode = Node<InferenceFact, Box<dyn InferenceOp>>;
 
@@ -37,6 +39,8 @@ pub struct LatexNode {
     pub value: String,
     pub shape: String,
     pub prefix: String,
+    pub backward: String,
+    pub op_attributes: BTreeMap<String,String>
 }
 
 #[derive(Default, Clone)]
@@ -122,7 +126,7 @@ impl LatexEngine {
 
         for (step, n) in plan.order.iter().enumerate() {
             let node = model.node(*n);
-            println!("node {}",*n);
+            // println!("node {}",*n);
             self.configure_node(node, *n);
 
             let op_name = node.op().name();
@@ -138,7 +142,7 @@ impl LatexEngine {
                 let prec = values[i.node].as_ref().ok_or_else(|| "error").unwrap();
                 inputs.push(prec[i.slot].clone().into())
             }
-            println!("opname {}",op_name);
+            // println!("opname {}",op_name);
             let form=self.symbol_map[*n].clone().unwrap();
 
             let f_string=match mode{
@@ -265,6 +269,7 @@ impl LatexEngine {
         }
         temp
     }
+    //  # input,$ self, @: attribute
     fn raw_parse_symbol(&self, original: String, origin: usize, inputs: Vec<String>) -> String {
         let mut ori_copy = original.clone();
 
