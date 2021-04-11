@@ -1,6 +1,14 @@
 use std::collections::HashMap;
 
-use nom::{combinator::map_res, error::{context, convert_error, ContextError, ErrorKind, ParseError, VerboseError}, number::complete::{be_u32, be_u8}};
+use nom::return_error;
+use nom::{
+    combinator::verify,
+    combinator::map_res,
+    error::{
+        context, convert_error, make_error, ContextError, ErrorKind, ParseError, VerboseError,
+    },
+    number::complete::{be_u32, be_u8},
+};
 use nom::{
     branch::alt,
     bytes::complete::{escaped, tag, take, take_until, take_while},
@@ -10,12 +18,13 @@ use nom::{
         streaming::alphanumeric1,
     },
     combinator::{cut, map, opt, value},
-    multi::{many0, separated_list1,separated_list0},
+    multi::{many0, separated_list0, separated_list1},
     number::complete::double,
     sequence::{delimited, preceded, separated_pair, terminated, tuple},
     switch, IResult,
 };
-use nom::number::complete::u8 as u_8;
+
+use serde::{Deserialize, Serialize};
 
 type Vss<'a> = Vec<(&'a str, &'a str)>;
 
@@ -23,20 +32,17 @@ pub fn symbol_split(input: &str) -> IResult<&str, Vss> {
     many0(tuple((take_while(|ch| !"#$@".contains(ch)), take(3usize))))(input)
 }
 
-enum SymbolWhich{
-  Input(usize),
-  Attribute(usize),
-  SelfName(usize)
+enum SymbolWhich {
+    Input(usize),
+    Attribute(usize),
+    SelfName(usize),
 }
 
 fn from_num(input: &str) -> Result<u8, std::num::ParseIntError> {
-  u8::from_str_radix(input, 10)
+    u8::from_str_radix(input, 10)
 }
 fn num_primary(input: &str) -> IResult<&str, u8> {
-  map_res(
-    take(1usize),
-    from_num
-  )(input)
+    map_res(take(1usize), from_num)(input)
 }
 pub fn insert_symbol_parts(
     original: (&str, Vss),
@@ -46,24 +52,25 @@ pub fn insert_symbol_parts(
 ) -> String {
     let mut result = String::new();
     for (key, symbol) in original.1.iter() {
-        let parse_result=alt(
-          (
-            preceded(tag("#_"),map(num_primary,|s:u8| SymbolWhich::Input(s as usize))),
-            preceded(tag("@_"),map(num_primary,|s:u8| SymbolWhich::Attribute(s as usize))),
-            preceded(tag("$_"),map(num_primary,|s:u8| SymbolWhich::SelfName(s as usize))),
-          )
-        )(*symbol);
+        let parse_result = alt((
+            preceded(
+                tag("#_"),
+                map(num_primary, |s: u8| SymbolWhich::Input(s as usize)),
+            ),
+            preceded(
+                tag("@_"),
+                map(num_primary, |s: u8| SymbolWhich::Attribute(s as usize)),
+            ),
+            preceded(
+                tag("$_"),
+                map(num_primary, |s: u8| SymbolWhich::SelfName(s as usize)),
+            ),
+        ))(*symbol);
 
         let to_insert = match parse_result.unwrap().1 {
-            SymbolWhich::Input(u ) =>{
-              x_in[u].as_str()
-            },
-            SymbolWhich::Attribute(u) =>{
-              a_in[u].as_str()
-            },
-            SymbolWhich::SelfName(s) => {
-              s_in.as_str()
-            }
+            SymbolWhich::Input(u) => x_in[u].as_str(),
+            SymbolWhich::Attribute(u) => a_in[u].as_str(),
+            SymbolWhich::SelfName(s) => s_in.as_str(),
         };
         result += &(key.to_string() + to_insert);
     }
@@ -72,7 +79,7 @@ pub fn insert_symbol_parts(
 }
 // parse debug section
 
-#[derive(Debug, PartialEq,Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum DebugValue {
     Str(String),
     Boolean(bool),
@@ -83,38 +90,38 @@ pub enum DebugValue {
     Undefined(String),
 }
 
-impl DebugValue{
-  pub fn shallow_to_string(&self) -> String {
-      match self{
-          DebugValue::Str(ref s) => {s.clone()}
-          DebugValue::Boolean(b) => {b.to_string()}
-          DebugValue::Num(n) => {n.to_string()}
-          DebugValue::Array(a) => {
-            let mut result= "[ ".to_string();
-            for i in a.iter(){
-              result+=&i.shallow_to_string();
-              result+=", ";
+impl DebugValue {
+    pub fn shallow_to_string(&self) -> String {
+        match self {
+            DebugValue::Str(ref s) => s.clone(),
+            DebugValue::Boolean(b) => b.to_string(),
+            DebugValue::Num(n) => n.to_string(),
+            DebugValue::Array(a) => {
+                let mut result = "[ ".to_string();
+                for i in a.iter() {
+                    result += &i.shallow_to_string();
+                    result += ", ";
+                }
+                result += "]";
+                result
             }
-            result+="]";
-            result
-          }
-          DebugValue::Object(a) => {
-            "".to_string()
-          }
-          DebugValue::Tuple(_) => {
-            "".to_string()
-          }
-          DebugValue::Undefined(s) => {
-            s.clone()
-          }
-      }
-  }
+            DebugValue::Object(a) => "".to_string(),
+            DebugValue::Tuple(a) => {
+                if a.len()==1{
+                    a[0].shallow_to_string()
+                }else{
+                    "".to_string()
+                }
+            },
+            DebugValue::Undefined(s) => s.clone(),
+        }
+    }
 }
 
-impl Default for DebugValue{
-  fn default() -> Self {
-      DebugValue::Undefined("".to_string())
-  }
+impl Default for DebugValue {
+    fn default() -> Self {
+        DebugValue::Undefined("".to_string())
+    }
 }
 /// parser combinators are constructed from the bottom up:
 /// first we write parsers for the smallest elements (here a space character),
@@ -190,6 +197,7 @@ fn boolean<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, bool,
 fn string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, &'a str, E> {
+    // println!("string {}",i);
     context(
         "string",
         preceded(char('\"'), cut(terminated(parse_str, char('\"')))),
@@ -244,7 +252,7 @@ fn hash<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
                         tuple_vec
                             .into_iter()
                             .enumerate()
-                            .map(|(i, (k,v))| (i.to_string()+"_"+k, v))
+                            .map(|(i, (k, v))| (i.to_string() + "_" + k, v))
                             .collect()
                     },
                 ),
@@ -263,7 +271,7 @@ fn tuple_it<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
         preceded(
             preceded(take_while(|ch| is_alphanumeric(ch as u8)), char('(')),
             cut(terminated(
-                separated_list0(preceded(sp, char(',')), json_value),
+            separated_list0(preceded(sp, char(',')), json_value),
                 preceded(sp, char(')')),
             )),
         ),
@@ -285,7 +293,8 @@ fn option_it<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 fn raw_string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, &'a str, E> {
-    context("constant", parse_str)(i)
+    // println!("raw_string {}",i);
+    context("constant", verify(parse_str,|s: &str| !s.contains(",")))(i)
 }
 /// here, we apply the space parser before trying to parse a value
 fn json_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
@@ -296,8 +305,8 @@ fn json_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
         alt((
             map(hash, DebugValue::Object),
             map(array, DebugValue::Array),
-            map(option_it, |js_value| js_value),
             map(tuple_it, DebugValue::Tuple),
+            map(option_it, |js_value| js_value),
             map(string, |s| DebugValue::Str(String::from(s))),
             map(double, DebugValue::Num),
             map(boolean, DebugValue::Boolean),
@@ -322,7 +331,7 @@ pub fn op_parse<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 
 #[test]
 fn raw_test() {
-    let t = r#"Test { c: [None, Some(2), Some("hello")], b: Hello { a: 20, b: "to" } }"#;
+    let t = r#"Test { c: [None, Some(2), Some("hello")], b: Hello(20,"to") }"#;
     let result = op_parse::<(&str, ErrorKind)>(t);
     println!("{:?}", result);
     assert!(result.is_ok());

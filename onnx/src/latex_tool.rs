@@ -16,6 +16,8 @@ use self::{
     parse_struct::{insert_symbol_parts, op_parse, symbol_split, DebugValue},
 };
 
+use serde::{Deserialize, Serialize};
+
 mod node_info;
 mod parse_struct;
 
@@ -40,7 +42,7 @@ where
     };
     r
 }
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default,Serialize,Deserialize)]
 pub struct LatexNode {
     pub inputs: Vec<usize>,
     pub symbol: String,
@@ -141,7 +143,7 @@ impl LatexEngine {
 
         for (step, n) in plan.order.iter().enumerate() {
             let node = model.node(*n);
-            // println!("node {}",*n);
+            println!("node {}",*n);
             self.configure_node(node, *n);
 
             let op_name = node.op().name();
@@ -329,7 +331,7 @@ impl LatexEngine {
     }
 }
 
-#[derive(Default)]
+#[derive(Default,Serialize,Deserialize)]
 pub struct LatexResult {
     pub symbol_map: Vec<Option<LatexNode>>,
 }
@@ -347,6 +349,10 @@ impl LatexResult {
         } else {
             "".to_owned()
         }
+    }
+    pub fn gen_json(&self) -> String{
+        let j = serde_json::to_string_pretty(self).unwrap();
+        j
     }
 }
 

@@ -26,6 +26,7 @@ tract-hir = { path = "../hir" }
 # tract-nnef = { path = "../nnef" }
 tract-onnx-opl = { path = "../onnx-opl" }
 serde = {version="1.0",features = ["derive"]}
+serde_json = "1.0"
 
 [dependencies.nom]
 version = "6.1.2"

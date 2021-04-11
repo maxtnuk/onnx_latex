@@ -6,7 +6,7 @@ use rand::prelude::*;
 fn main() -> TractResult<()> {
     let model = tract_onnx::onnx()
         // load the model
-        .model_for_path("l2.onnx")?
+        .model_for_path("l2s.onnx")?
         // specify input type and shap
         // optimize the model
         // make the model runnable and fix its inputs and outputs
@@ -21,6 +21,7 @@ fn main() -> TractResult<()> {
     for i in 0..model.model().nodes.len(){
         println!("form: {}",result.get_node_formul(i));
     }
+    // println!("{}",result.gen_json());
 
     // for n in model.model().nodes(){
     //     let op_name=n.op().name();
