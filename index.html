@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+    <style>
+        #bodySet {
+            background: #f0ece2;
+            display: flex;
+            justify-content: center;
+        }
+
+        #toCenter {
+            margin-top: 150px;
+        }
+
+        #projectName {
+            width: 600px;
+            height: 150px;
+            background: #a1cae2;
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #buttonWrap {
+            margin: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+
+        #upload {
+            background: cornsilk;
+            border: 0;
+            outline: 0;
+        }
+    </style>
+</head>
+
+<body id="bodySet">
+    <div id="toCenter">
+        <div id="projectName">
+            ML Expression
+        </div>
+        <div id="buttonWrap">
+            <button id="upload">파일</button>
+        </div>
+    </div>
+
+    <script>
+        const { dialog } = require('electron');
+        var upload = document.getElementById('upload');
+        upload.addEventListener('click', function (event) {
+            ipc.send('open-file-dialog-for-file');
+        });
+    </script>
+</body>
+
+</html>
