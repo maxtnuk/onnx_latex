@@ -21,7 +21,7 @@ fn main() -> TractResult<()> {
     for i in 0..model.model().nodes.len(){
         println!("form: {}",result.get_node_formul(i));
     }
-    // println!("{}",result.gen_json());
+    println!("{:?}",result.senario);
 
     // for n in model.model().nodes(){
     //     let op_name=n.op().name();

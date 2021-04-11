@@ -43,7 +43,7 @@ impl Default for FormulNode {
         }
     }
 }
-#[derive(Serialize,Deserialize,Clone)]
+#[derive(Serialize,Deserialize,Clone,PartialEq)]
 pub enum FormulKind{
     Activation,
     Function,
