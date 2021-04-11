@@ -6,9 +6,8 @@ use rand::prelude::*;
 fn main() -> TractResult<()> {
     let model = tract_onnx::onnx()
         // load the model
-        .model_for_path("l2s.onnx")?
-        // specify input type and shape
-        .with_input_fact(0, InferenceFact::dt_shape(f32::datum_type(), tvec!(64, 1000)))?
+        .model_for_path("l2.onnx")?
+        // specify input type and shap
         // optimize the model
         // make the model runnable and fix its inputs and outputs
         .into_runnable()?;
@@ -17,7 +16,7 @@ fn main() -> TractResult<()> {
     let input = tract_ndarray::arr1(&vals).into_shape((64, 1000)).unwrap();
     let mut engine=LatexEngine::new();
 
-    let result=engine.parse_plan(&model, tvec![input.into()],ParseMode::Full);
+    let result=engine.parse_plan(&model, tvec![input.into()],ParseMode::Brief);
 
     for i in 0..model.model().nodes.len(){
         println!("form: {}",result.get_node_formul(i));

@@ -73,23 +73,23 @@ pub fn insert_symbol_parts(
 // parse debug section
 
 #[derive(Debug, PartialEq,Clone)]
-pub enum JsonValue {
+pub enum DebugValue {
     Str(String),
     Boolean(bool),
     Num(f64),
-    Array(Vec<JsonValue>),
-    Object(HashMap<String, JsonValue>),
-    Tuple(Vec<JsonValue>),
+    Array(Vec<DebugValue>),
+    Object(HashMap<String, DebugValue>),
+    Tuple(Vec<DebugValue>),
     Undefined(String),
 }
 
-impl JsonValue{
+impl DebugValue{
   pub fn shallow_to_string(&self) -> String {
       match self{
-          JsonValue::Str(ref s) => {s.clone()}
-          JsonValue::Boolean(b) => {b.to_string()}
-          JsonValue::Num(n) => {n.to_string()}
-          JsonValue::Array(a) => {
+          DebugValue::Str(ref s) => {s.clone()}
+          DebugValue::Boolean(b) => {b.to_string()}
+          DebugValue::Num(n) => {n.to_string()}
+          DebugValue::Array(a) => {
             let mut result= "[ ".to_string();
             for i in a.iter(){
               result+=&i.shallow_to_string();
@@ -98,22 +98,22 @@ impl JsonValue{
             result+="]";
             result
           }
-          JsonValue::Object(a) => {
+          DebugValue::Object(a) => {
             "".to_string()
           }
-          JsonValue::Tuple(_) => {
+          DebugValue::Tuple(_) => {
             "".to_string()
           }
-          JsonValue::Undefined(s) => {
+          DebugValue::Undefined(s) => {
             s.clone()
           }
       }
   }
 }
 
-impl Default for JsonValue{
+impl Default for DebugValue{
   fn default() -> Self {
-      JsonValue::Undefined("".to_string())
+      DebugValue::Undefined("".to_string())
   }
 }
 /// parser combinators are constructed from the bottom up:
@@ -202,8 +202,8 @@ fn string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 /// combinator (cf `examples/iterator.rs`)
 fn array<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, Vec<JsonValue>, E> {
-    println!("array {}", i);
+) -> IResult<&'a str, Vec<DebugValue>, E> {
+    // println!("array {}", i);
     context(
         "array",
         preceded(
@@ -218,7 +218,7 @@ fn array<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 
 fn key_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, (&'a str, JsonValue), E> {
+) -> IResult<&'a str, (&'a str, DebugValue), E> {
     separated_pair(
         preceded(sp, raw_string),
         cut(preceded(sp, char(':'))),
@@ -228,8 +228,8 @@ fn key_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 
 fn hash<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, HashMap<String, JsonValue>, E> {
-    println!("hash {}", i);
+) -> IResult<&'a str, HashMap<String, DebugValue>, E> {
+    // println!("hash {}", i);
     context(
         "map",
         preceded(
@@ -243,7 +243,8 @@ fn hash<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
                     |tuple_vec| {
                         tuple_vec
                             .into_iter()
-                            .map(|(k, v)| (String::from(k), v))
+                            .enumerate()
+                            .map(|(i, (k,v))| (i.to_string()+"_"+k, v))
                             .collect()
                     },
                 ),
@@ -255,8 +256,8 @@ fn hash<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 
 fn tuple_it<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, Vec<JsonValue>, E> {
-    println!("tupple {}", i);
+) -> IResult<&'a str, Vec<DebugValue>, E> {
+    // println!("tupple {}", i);
     context(
         "tupple",
         preceded(
@@ -271,8 +272,8 @@ fn tuple_it<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 
 fn option_it<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, JsonValue, E> {
-    println!("option {}", i);
+) -> IResult<&'a str, DebugValue, E> {
+    // println!("option {}", i);
     context(
         "option",
         preceded(
@@ -289,18 +290,18 @@ fn raw_string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 /// here, we apply the space parser before trying to parse a value
 fn json_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, JsonValue, E> {
+) -> IResult<&'a str, DebugValue, E> {
     preceded(
         sp,
         alt((
-            map(hash, JsonValue::Object),
-            map(array, JsonValue::Array),
-            map(tuple_it, JsonValue::Tuple),
-            map(string, |s| JsonValue::Str(String::from(s))),
-            map(double, JsonValue::Num),
-            map(boolean, JsonValue::Boolean),
+            map(hash, DebugValue::Object),
+            map(array, DebugValue::Array),
+            map(tuple_it, DebugValue::Tuple),
+            map(string, |s| DebugValue::Str(String::from(s))),
+            map(double, DebugValue::Num),
+            map(boolean, DebugValue::Boolean),
             map(option_it, |js_value| js_value),
-            map(raw_string, |s| JsonValue::Undefined(String::from(s))),
+            map(raw_string, |s| DebugValue::Undefined(String::from(s))),
         )),
     )(i)
 }
@@ -308,12 +309,12 @@ fn json_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 /// the root element of a JSON parser is either an object or an array
 pub fn op_parse<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, JsonValue, E> {
+) -> IResult<&'a str, DebugValue, E> {
     delimited(
         sp,
         alt((
-            map(hash, JsonValue::Object),
-            map(tuple_it, JsonValue::Tuple),
+            map(hash, DebugValue::Object),
+            map(tuple_it, DebugValue::Tuple),
         )),
         opt(sp),
     )(i)

@@ -1,5 +1,5 @@
 use ron::Value;
-use tract_hir::internal::{OpState, SessionState};
+use tract_hir::{internal::{OpState, SessionState}, tract_core::itertools::Itertools};
 
 use crate::{prelude::*, tract_hir::infer::InferenceOp};
 use nom::error::ErrorKind;
@@ -11,7 +11,10 @@ use std::{
     fmt::Display,
 };
 
-use self::{node_info::{Formul, FormulKind, FormulNode}, parse_struct::{JsonValue, insert_symbol_parts, op_parse, symbol_split}};
+use self::{
+    node_info::{Formul, FormulKind, FormulNode},
+    parse_struct::{insert_symbol_parts, op_parse, symbol_split, DebugValue},
+};
 
 mod node_info;
 mod parse_struct;
@@ -45,7 +48,7 @@ pub struct LatexNode {
     pub shape: String,
     pub prefix: String,
     pub backward: String,
-    pub op_attributes: JsonValue,
+    pub op_attributes: DebugValue,
 }
 
 #[derive(Default, Clone)]
@@ -255,7 +258,7 @@ impl LatexEngine {
         if let Ok((s, inner)) = op_parse::<(&str, ErrorKind)>(debug_op.as_str()) {
             result.op_attributes = inner;
         } else {
-            result.op_attributes = JsonValue::Undefined("".to_owned());
+            result.op_attributes = DebugValue::Undefined("".to_owned());
         }
         // find symbol
         if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(op_name.to_string()) {
@@ -274,6 +277,7 @@ impl LatexEngine {
         }
         self.symbol_map[index] = Some(result.clone());
     }
+    #[deprecated]
     fn insert_parts(&self, splits: Vec<&str>, inputs: InputsType) -> String {
         let mut temp = String::new();
         temp += splits[0];
@@ -293,24 +297,20 @@ impl LatexEngine {
     fn raw_parse_symbol(&self, original: String, origin: usize, inputs: Vec<String>) -> String {
         let sym_node = self.symbol_map[origin].clone().unwrap();
 
+        let splits = symbol_split(original.as_str()).unwrap();
 
-        let splits=symbol_split(original.as_str()).unwrap();
-
-        let attributes:Vec<String>= match sym_node.op_attributes{
-            JsonValue::Tuple(v) =>{
-                v.iter().map(|s|s.shallow_to_string()).collect()
-            },
-            JsonValue::Object(v) =>{
-                v.iter().map(|(l,a)| "".to_string()+l+":"+&a.shallow_to_string() ).collect()
-            },
-            _=> {
-                Vec::new()
-            }
+        let attributes: Vec<String> = match sym_node.op_attributes {
+            DebugValue::Tuple(v) => v.iter().map(|s| s.shallow_to_string()).collect(),
+            DebugValue::Object(v) => v
+                .iter()
+                .sorted_by_key(|(k,dv)| k.chars().nth(0).unwrap())
+                .map(|(l, a)| a.shallow_to_string())
+                .collect(),
+            _ => Vec::new(),
         };
         let s_name = self.symbol_map[origin].clone().unwrap().symbol.clone();
 
-        let parsing_result=insert_symbol_parts(splits,inputs,attributes,s_name);
-
+        let parsing_result = insert_symbol_parts(splits, inputs, attributes, s_name);
 
         // // #part
         // let temp_split: Vec<&str> = ori_copy.split('#').collect();
@@ -330,7 +330,7 @@ impl LatexEngine {
         // }
 
         // // $ part
-        
+
         // let self_split: Vec<&str> = ori_copy.split('$').collect();
         // if self_split.len() > 0 {
         //     ori_copy = self.insert_parts(self_split, InputsType::Single(s_name));
