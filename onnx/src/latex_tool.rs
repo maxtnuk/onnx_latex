@@ -303,8 +303,7 @@ impl LatexEngine {
             DebugValue::Tuple(v) => v.iter().map(|s| s.shallow_to_string()).collect(),
             DebugValue::Object(v) => v
                 .iter()
-                .sorted_by_key(|(k,dv)| k.chars().nth(0).unwrap())
-                .map(|(l, a)| a.shallow_to_string())
+                .map(|(_, a)| a.shallow_to_string())
                 .collect(),
             _ => Vec::new(),
         };

@@ -85,7 +85,7 @@ pub enum DebugValue {
     Boolean(bool),
     Num(f64),
     Array(Vec<DebugValue>),
-    Object(HashMap<String, DebugValue>),
+    Object(Vec<(String, DebugValue)>),
     Tuple(Vec<DebugValue>),
     Undefined(String),
 }
@@ -236,7 +236,7 @@ fn key_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 
 fn hash<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, HashMap<String, DebugValue>, E> {
+) -> IResult<&'a str, Vec<(String, DebugValue)>, E> {
     // println!("hash {}", i);
     context(
         "map",
@@ -249,11 +249,7 @@ fn hash<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
                 map(
                     separated_list0(preceded(sp, char(',')), key_value),
                     |tuple_vec| {
-                        tuple_vec
-                            .into_iter()
-                            .enumerate()
-                            .map(|(i, (k, v))| (i.to_string() + "_" + k, v))
-                            .collect()
+                        tuple_vec.iter().map(|(k,v)| (k.to_string(),v.clone())).collect()
                     },
                 ),
                 preceded(sp, char('}')),
