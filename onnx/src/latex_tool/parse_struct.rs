@@ -296,11 +296,11 @@ fn json_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
         alt((
             map(hash, DebugValue::Object),
             map(array, DebugValue::Array),
+            map(option_it, |js_value| js_value),
             map(tuple_it, DebugValue::Tuple),
             map(string, |s| DebugValue::Str(String::from(s))),
             map(double, DebugValue::Num),
             map(boolean, DebugValue::Boolean),
-            map(option_it, |js_value| js_value),
             map(raw_string, |s| DebugValue::Undefined(String::from(s))),
         )),
     )(i)

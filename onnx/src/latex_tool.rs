@@ -160,13 +160,13 @@ impl LatexEngine {
             // println!("opname {}",op_name);
             let form = self.symbol_map[*n].clone().unwrap();
 
-            let f_string = match mode {
+            let forward_string = match mode {
                 ParseMode::Brief => self.parse_symbol(form.prefix, *n, input_ids.clone()),
                 ParseMode::Full => self.rec_node(node, model),
             };
             if let Some(ref mut x) = self.symbol_map[*n] {
                 x.inputs = input_ids.clone();
-                x.value = f_string;
+                x.value = forward_string;
             }
 
             // node formul
@@ -185,6 +185,7 @@ impl LatexEngine {
     }
     fn rec_node(&self, node: &InferenceNode, model: &InferenceModel) -> String {
         let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
+
         if input_ids.len() == 0 {
             return self.symbol_map[node.id].clone().unwrap().symbol;
         }
@@ -232,11 +233,8 @@ impl LatexEngine {
                         }
                         _ => 1,
                     };
-                    if sharp_split.len() > 1 {
-                        format!("{}{}{}", sharp_split[0], tt - 1, sharp_split[1])
-                    } else {
-                        format!("{}_{}", sharp_split[0], tt - 1)
-                    }
+                    let splits = symbol_split(symbol.as_str()).unwrap();
+                    insert_symbol_parts(splits, vec![tt.to_string()], Vec::new(), "".to_owned())
                 } else {
                     format!("{}", sharp_split[0])
                 }
@@ -312,30 +310,6 @@ impl LatexEngine {
 
         let parsing_result = insert_symbol_parts(splits, inputs, attributes, s_name);
 
-        // // #part
-        // let temp_split: Vec<&str> = ori_copy.split('#').collect();
-
-        // if temp_split.len() > 0 {
-        //     if temp_split.len() != inputs.len() {
-        //         let t: Vec<String> = inputs
-        //             .iter()
-        //             .cycle()
-        //             .cloned()
-        //             .take(temp_split.len())
-        //             .collect();
-        //         ori_copy = self.insert_parts(temp_split, InputsType::Multi(t));
-        //     } else {
-        //         ori_copy = self.insert_parts(temp_split, InputsType::Multi(inputs));
-        //     }
-        // }
-
-        // // $ part
-
-        // let self_split: Vec<&str> = ori_copy.split('$').collect();
-        // if self_split.len() > 0 {
-        //     ori_copy = self.insert_parts(self_split, InputsType::Single(s_name));
-        // }
-        // ori_copy
         parsing_result
     }
 

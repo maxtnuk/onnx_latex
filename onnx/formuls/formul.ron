@@ -4,7 +4,7 @@
     entries: {
         "Gemm": (
             inputs: 3,
-            formul: "{#_0}\\cdot {#_0}+{#_0}",
+            formul: "{#_0}\\cdot {#_1}+{#_2}",
             diff: Some("#"),
             symbol: None
         )
