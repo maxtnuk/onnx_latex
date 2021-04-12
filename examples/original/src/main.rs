@@ -33,7 +33,12 @@ fn main() -> TractResult<()> {
             println!("value: {:?}",fact.value.clone());
             
         }
-        println!("output: {:?}",n.outputs);
+        for i in n.outputs.iter(){
+            for j in i.successors.iter(){
+                println!("output: {:?}",j); 
+            }
+              
+        }
         println!("node name: {}", node_name);
         println!("op name: {}", op_name);
         println!();

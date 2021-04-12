@@ -13,6 +13,9 @@
         ),
         "Source" :(
             symbol: Some("\\overline{Input}")
+        ),
+        "Error" :(
+            symbol: Some("E_{#}")
         )
     }
 )
