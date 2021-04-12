@@ -1,5 +1,8 @@
 use ron::Value;
-use tract_hir::{internal::{OpState, SessionState}, tract_core::itertools::Itertools};
+use tract_hir::{
+    internal::{OpState, SessionState},
+    tract_core::itertools::Itertools,
+};
 
 use crate::{prelude::*, tract_hir::infer::InferenceOp};
 use nom::error::ErrorKind;
@@ -42,14 +45,14 @@ where
     };
     r
 }
-#[derive(Debug, Clone, Default,Serialize,Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LatexNode {
     pub inputs: Vec<usize>,
     pub symbol: String,
     pub value: String,
-    pub shape: String,
-    pub prefix: String,
-    pub backward: String,
+    pub shape: Vec<usize>,
+    pub forward_prefix: String,
+    pub backward_prefix: String,
     pub op_attributes: DebugValue,
 }
 
@@ -59,8 +62,6 @@ pub struct SymbolLibrary {
     pub etc: Formul,
     pub activation: Formul,
 }
-
-
 
 impl SymbolLibrary {
     fn new() -> Self {
@@ -145,12 +146,17 @@ impl LatexEngine {
 
         for (step, n) in plan.order.iter().enumerate() {
             let node = model.node(*n);
-            println!("node {}",*n);
-            let node_kind=self.configure_node(node, *n);
+            println!("node {}", *n);
+            let node_kind = self.configure_node(node, *n);
 
-            if let Some(fk) = node_kind{
-                if fk==FormulKind::Activation || fk== FormulKind::Function{
-                    latex_result.senario.push(*n);
+            if let Some(fk) = node_kind {
+                match fk{
+                    FormulKind::Not | FormulKind::Base =>{
+                        
+                    },
+                    _ =>{
+                        latex_result.senario.push(*n);
+                    }
                 }
             }
 
@@ -167,13 +173,23 @@ impl LatexEngine {
             for i in &node.inputs {
                 let prec_node = model.node(i.node);
                 let prec = values[i.node].as_ref().ok_or_else(|| "error").unwrap();
+                let fact = model.outlet_fact(*i).unwrap();
+
+                let input_shape: Vec<usize> = fact
+                    .shape
+                    .dims()
+                    .map(|s| format!("{}", s).as_str().parse().unwrap())
+                    .collect();
+                if let Some(l)=self.symbol_map[i.node].as_mut(){
+                    l.shape=input_shape;
+                }
                 inputs.push(prec[i.slot].clone().into())
             }
             // println!("opname {}",op_name);
             let form = self.symbol_map[*n].clone().unwrap();
 
             let forward_string = match mode {
-                ParseMode::Brief => self.parse_symbol(form.prefix, *n, input_ids.clone()),
+                ParseMode::Brief => self.parse_symbol(form.forward_prefix, *n, input_ids.clone()),
                 ParseMode::Full => self.rec_node(node, model),
             };
             if let Some(ref mut x) = self.symbol_map[*n] {
@@ -254,7 +270,7 @@ impl LatexEngine {
             _ => "".to_owned(),
         }
     }
-    pub fn configure_node(&mut self, node: &InferenceNode, index: usize)-> Option<FormulKind>{
+    pub fn configure_node(&mut self, node: &InferenceNode, index: usize) -> Option<FormulKind> {
         if self.symbol_map[index].is_some() {
             return None;
         }
@@ -263,7 +279,7 @@ impl LatexEngine {
         let n_name_split: Vec<&str> = n_name.split(".").collect();
         let op_name = node.op().name();
         // println!("node id: {}",node.id);
-        let mut fkind= FormulKind::Not;
+        let mut fkind = FormulKind::Not;
         let debug_op = format!("{:?}", node.op());
         if let Ok((s, inner)) = op_parse::<(&str, ErrorKind)>(debug_op.as_str()) {
             result.op_attributes = inner;
@@ -273,8 +289,8 @@ impl LatexEngine {
         // find symbol
         if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(op_name.to_string()) {
             result.symbol = self.create_new_symbol(symbol.clone(), n_type.clone(), None);
-            result.prefix = form.formul;
-            fkind=n_type;
+            result.forward_prefix = form.formul;
+            fkind = n_type;
         } else {
             let temp = op_name + "." + n_name_split[1];
             if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(temp.to_string()) {
@@ -283,8 +299,8 @@ impl LatexEngine {
                     n_type.clone(),
                     Some(n_name_split[1].to_string()),
                 );
-                result.prefix = form.formul;
-                fkind=n_type;
+                result.forward_prefix = form.formul;
+                fkind = n_type;
             }
         }
         self.symbol_map[index] = Some(result.clone());
@@ -314,10 +330,7 @@ impl LatexEngine {
 
         let attributes: Vec<String> = match sym_node.op_attributes {
             DebugValue::Tuple(v) => v.iter().map(|s| s.shallow_to_string()).collect(),
-            DebugValue::Object(v) => v
-                .iter()
-                .map(|(_, a)| a.shallow_to_string())
-                .collect(),
+            DebugValue::Object(v) => v.iter().map(|(_, a)| a.shallow_to_string()).collect(),
             _ => Vec::new(),
         };
         let s_name = self.symbol_map[origin].clone().unwrap().symbol.clone();
@@ -343,10 +356,10 @@ impl LatexEngine {
     }
 }
 
-#[derive(Default,Serialize,Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct LatexResult {
     pub symbol_map: Vec<Option<LatexNode>>,
-    pub senario: Vec<usize>
+    pub senario: Vec<usize>,
 }
 
 impl LatexResult {
@@ -354,7 +367,7 @@ impl LatexResult {
         let input = vec![None; graph_size];
         LatexResult {
             symbol_map: input.clone(),
-            senario: Vec::new()
+            senario: Vec::new(),
         }
     }
     pub fn get_node_formul(&self, i: usize) -> String {
@@ -364,7 +377,7 @@ impl LatexResult {
             "".to_owned()
         }
     }
-    pub fn gen_json(&self) -> String{
+    pub fn gen_json(&self) -> String {
         let j = serde_json::to_string_pretty(self).unwrap();
         j
     }

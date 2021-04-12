@@ -31,7 +31,9 @@ fn main() -> TractResult<()> {
             let fact=model.model().outlet_fact(*i).unwrap();
             println!("shape: {:?}",fact.shape.clone());
             println!("value: {:?}",fact.value.clone());
+            
         }
+        println!("output: {:?}",n.outputs);
         println!("node name: {}", node_name);
         println!("op name: {}", op_name);
         println!();
