@@ -7,10 +7,10 @@
             formul: "{#_0}\\cdot {#_1}+{#_2}",
             diff: Some("#"),
             symbol: None
-        )
+        ),
         "_Diff":(
-            inputs: 2
-            formul: "\\frac{\partial #_0}{\\partial #_1}",
+            inputs: 2,
+            formul: "\\frac{\\partial #_0}{\\partial #_1}",
             diff: Some("#"),
             symbol: None
         )
