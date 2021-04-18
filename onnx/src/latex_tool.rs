@@ -97,7 +97,7 @@ impl SymbolLibrary {
 pub enum DiffChainNode {
     Weightable(usize, String),
     UnWeightable(usize, String),
-    Sum(Box<DiffChainNode>,usize),
+    Sum(Box<DiffChainNode>, usize),
     Chain(Vec<DiffChainNode>),
     Not,
 }
@@ -131,11 +131,11 @@ impl LatexEngine {
         }
     }
     fn flush(&mut self) {
-        self.symbol_map=Vec::new();
-        self.weight_count=0;
-        self.bias_count=0;
-        self.const_count=0;
-        self.activation_count=0;
+        self.symbol_map = Vec::new();
+        self.weight_count = 0;
+        self.bias_count = 0;
+        self.const_count = 0;
+        self.activation_count = 0;
     }
 
     pub fn parse_plan(
@@ -194,17 +194,20 @@ impl LatexEngine {
                     .map(|s| format!("{}", s).as_str().parse().unwrap())
                     .collect();
                 if let Some(l) = self.symbol_map[i.node].as_mut() {
-                    if l.shape.len()==0{
+                    if l.shape.len() == 0 {
                         l.shape = input_shape;
                     }
                 }
                 inputs.push(prec[i.slot].clone().into())
             }
 
-
             // println!("opname {}",op_name);
             let forward_string = match mode {
-                ParseMode::Brief => self.parse_symbol(self.symbol_map[*n].clone().unwrap().forward_prefix, *n, input_ids.clone()),
+                ParseMode::Brief => self.parse_symbol(
+                    self.symbol_map[*n].as_ref().unwrap().forward_prefix.clone(),
+                    *n,
+                    input_ids.clone(),
+                ),
                 ParseMode::Full => self.rec_node(node, model),
             };
             // node formul
@@ -218,16 +221,11 @@ impl LatexEngine {
             .unwrap();
             values[node.id] = Some(vs.clone());
 
-
-            if let Some(form) = self.symbol_map[*n].as_mut(){
+            if let Some(form) = self.symbol_map[*n].as_mut() {
                 form.inputs = input_ids.clone();
                 form.value = forward_string;
                 form.shape = vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
             }
-
-            
-
-            
         }
 
         // backward
@@ -267,7 +265,7 @@ impl LatexEngine {
         let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
 
         if input_ids.len() == 0 {
-            return self.symbol_map[node.id].clone().unwrap().symbol;
+            return self.symbol_map[node.id].as_ref().unwrap().symbol.clone();
         }
 
         let ins = input_ids.iter().fold(Vec::new(), |mut acc, x| {
@@ -332,25 +330,40 @@ impl LatexEngine {
         // println!("node id: {}",node.id);
         let mut fkind = FormulKind::Not;
         let debug_op = format!("{:?}", node.op());
-        self.symbol_map[index]=Some(LatexNode::default());
-        let (symbol,forward_prefix,backward_prefix)=if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(op_name.to_string()) {
+        self.symbol_map[index] = Some(LatexNode::default());
+        let (symbol, forward_prefix, backward_prefix) = if let Some((symbol, n_type, form)) =
+            self.symbol_library.get_symbol(op_name.to_string())
+        {
             fkind = n_type.clone();
-            (self.create_new_symbol(symbol.clone(), n_type, None),form.formul,form.diff.unwrap_or("".to_string()))
+            (
+                self.create_new_symbol(symbol.clone(), n_type, None),
+                form.formul,
+                form.diff.unwrap_or("".to_string()),
+            )
         } else {
             let temp = op_name + "." + n_name_split[1];
             if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(temp.to_string()) {
                 fkind = n_type.clone();
-                (self.create_new_symbol(symbol.clone(),n_type,Some(n_name_split[1].to_string())),form.formul,form.diff.unwrap_or("".to_string()))
-            }else{
-                ("".to_owned(),"".to_owned(),"".to_owned())
+                (
+                    self.create_new_symbol(
+                        symbol.clone(),
+                        n_type,
+                        Some(n_name_split[1].to_string()),
+                    ),
+                    form.formul,
+                    form.diff.unwrap_or("".to_string()),
+                )
+            } else {
+                ("".to_owned(), "".to_owned(), "".to_owned())
             }
         };
-        if let Some(nn) = self.symbol_map[index].as_mut(){
-            nn.op_attributes = op_parse::<(&str, ErrorKind)>(debug_op.as_str()).unwrap_or(("",DebugValue::Undefined("".to_owned()))).1;
-            nn.symbol=symbol;
-            nn.forward_prefix=forward_prefix;
-            nn.backward_prefix=backward_prefix;
-            
+        if let Some(nn) = self.symbol_map[index].as_mut() {
+            nn.op_attributes = op_parse::<(&str, ErrorKind)>(debug_op.as_str())
+                .unwrap_or(("", DebugValue::Undefined("".to_owned())))
+                .1;
+            nn.symbol = symbol;
+            nn.forward_prefix = forward_prefix;
+            nn.backward_prefix = backward_prefix;
         }
         Some(fkind)
     }
@@ -372,16 +385,16 @@ impl LatexEngine {
     }
     //  # input,$ self, @: attribute
     fn raw_parse_symbol(&self, original: String, origin: usize, inputs: Vec<String>) -> String {
-        let sym_node = self.symbol_map[origin].clone().unwrap();
+        let sym_node = self.symbol_map[origin].as_ref().unwrap();
 
         let splits = symbol_split(original.as_str()).unwrap();
 
         let attributes: Vec<String> = match sym_node.op_attributes {
-            DebugValue::Tuple(v) => v.iter().map(|s| s.shallow_to_string()).collect(),
-            DebugValue::Object(v) => v.iter().map(|(_, a)| a.shallow_to_string()).collect(),
+            DebugValue::Tuple(ref v) => v.iter().map(|s| s.shallow_to_string()).collect(),
+            DebugValue::Object(ref v) => v.iter().map(|(_, a)| a.shallow_to_string()).collect(),
             _ => Vec::new(),
         };
-        let s_name = self.symbol_map[origin].clone().unwrap().symbol.clone();
+        let s_name = self.symbol_map[origin].as_ref().unwrap().symbol.clone();
 
         let parsing_result = insert_symbol_parts(splits, inputs, attributes, s_name);
 
@@ -416,7 +429,7 @@ impl LatexEngine {
 
                 match v[0].clone() {
                     DiffChainNode::Weightable(i, s) => {
-                        println!("weightable in chain: {}",i);
+                        println!("weightable in chain: {}", i);
                         if i != error_node {
                             DiffChainNode::Not
                         } else {
@@ -424,7 +437,7 @@ impl LatexEngine {
                         }
                     }
                     DiffChainNode::UnWeightable(i, s) => {
-                        println!("unwieghtable in chain: {}",i);
+                        println!("unwieghtable in chain: {}", i);
                         if i != error_node {
                             let node = model.node(i);
                             let into_node_id = node.outputs[0].successors[0].node;
@@ -432,11 +445,15 @@ impl LatexEngine {
                             let in_node = self.symbol_map[into_node_id].as_ref().unwrap();
                             let sum = self.expand_diff_symbol(
                                 model,
-                                DiffChainNode::Weightable(into_node_id,in_node.symbol.clone()),
+                                DiffChainNode::Weightable(into_node_id, in_node.symbol.clone()),
                                 error_node,
                             );
-                            let size_check= if in_node.shape.len() > 1 {in_node.shape[1]} else{in_node.shape[0]};
-                            sum_it.push(DiffChainNode::Sum(Box::new(sum),size_check));
+                            let size_check = if in_node.shape.len() > 1 {
+                                in_node.shape[1]
+                            } else {
+                                in_node.shape[0]
+                            };
+                            sum_it.push(DiffChainNode::Sum(Box::new(sum), size_check));
                             sum_it.append(&mut v_clone);
                             DiffChainNode::Chain(sum_it)
                         } else {
@@ -448,16 +465,16 @@ impl LatexEngine {
             }
             // first
             DiffChainNode::Weightable(i, s) => {
-                println!("weightable :{}",i);
-                // 
+                println!("weightable :{}", i);
+                //
                 let node = model.node(i);
                 let mut result = Vec::new();
-                
+
                 if node.outputs.len() != 0 {
                     let into_node = node.outputs[0].successors[0].node;
                     let symbol_name = self.symbol_map[into_node].as_ref().unwrap().symbol.clone();
                     result.push(DiffChainNode::UnWeightable(into_node, symbol_name));
-                } 
+                }
                 result.push(DiffChainNode::Weightable(i, s));
 
                 self.expand_diff_symbol(model, DiffChainNode::Chain(result), error_node)
