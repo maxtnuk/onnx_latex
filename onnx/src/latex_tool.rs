@@ -161,7 +161,7 @@ impl LatexEngine {
 
         for (step, n) in plan.order.iter().enumerate() {
             let node = model.node(*n);
-            println!("node {}", *n);
+            // println!("node {}", *n);
             let node_kind = self.configure_node(node, *n);
 
             if let Some(fk) = node_kind {
@@ -249,12 +249,12 @@ impl LatexEngine {
         // println!("senario {:?}",latex_result.senario);
 
         // test code
-        let which_node = latex_result.senario[0];
-        let to_node = latex_result.senario[3];
+        let which_node = latex_result.senario.first().unwrap();
+        let to_node = latex_result.senario.last().unwrap();
         let s = self.expand_diff_symbol(
             model,
-            DiffChainNode::Weightable(which_node, "hello".to_string()),
-            to_node,
+            DiffChainNode::Weightable(*which_node, "hello".to_string()),
+            *to_node,
         );
         println!("chain test {:?}", s);
         latex_result.symbol_map = self.symbol_map.clone();
