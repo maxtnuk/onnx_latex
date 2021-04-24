@@ -255,17 +255,17 @@ impl LatexEngine {
         // println!("senario {:?}",latex_result.senario);
 
         // test code
-        let which_node = latex_result.senario.first().unwrap();
+        let which_node = latex_result.senario[2];
         let to_node = latex_result.senario.last().unwrap();
-        let which_symbol=self.symbol_map[*which_node].as_ref().unwrap().symbol.clone();
+        let which_symbol=self.symbol_map[which_node].as_ref().unwrap().symbol.clone();
         let s = self.expand_diff_symbol(
             model,
-            DiffChainNode::Weightable(*which_node, which_symbol),
+            DiffChainNode::Weightable(which_node, which_symbol),
             *to_node,
         );
         
         let final_node = latex_result.senario.last().unwrap();
-        // println!("chain test {:?}", s);
+        println!("chain test {:?}", s);
 
         let backward=self.gen_backward_value(&s,ErrorResultTo::Total,(1,2));
         println!("backward: {}",backward);
@@ -511,12 +511,11 @@ impl LatexEngine {
                 }else{
                     None
                 };
+                let to_insert=pre_chain.unwrap_or("w".to_string());
 
                 match d[0].clone(){
                     DiffChainNode::Weightable(i, ref s) => {
-                        let (p0,p1)= (level-1,level-2);
-                        let p0_str = format!("n_{}",p0);
-                        let p1_str =format!("n_{}",p1);
+                        let (p0_str,p1_str)= self.get_p0p1(level,weight);
                         let e_symbol=match final_model_end{
                             ErrorResultTo::Total => {
                                 let last_node= only_inputs_symbol_parts(back_package[4].clone(), vec![s.clone(),p0_str.clone()]);
@@ -526,8 +525,9 @@ impl LatexEngine {
                                 self.gen_error_symbol(vec![s.clone(),i.to_string()])
                             }
                         };
+
                         let a_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![s.clone(),p0_str.clone()]);
-                        let p_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![pre_chain.unwrap(),p1_str.clone()]);
+                        let p_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![to_insert,p1_str.clone()]);
                         
                         let e_a=only_inputs_symbol_parts(back_package[0].clone(), vec![e_symbol,a_sym.clone()]);
                         let a_p=only_inputs_symbol_parts(back_package[0].clone(), vec![a_sym.clone(),p_sym]);
@@ -535,9 +535,7 @@ impl LatexEngine {
                         only_inputs_symbol_parts(back_package[2].clone(), vec![e_a,a_p])
                     }
                     DiffChainNode::UnWeightable(i,ref s) => {
-                        let (p0,p1)= (level-1,level-2);
-                        let p0_str = format!("n_{}",p0);
-                        let p1_str =format!("n_{}",p1);
+                        let (p0_str,p1_str)= self.get_p0p1(level,weight);
                         let e_symbol=match final_model_end{
                             ErrorResultTo::Total => {
                                 let last_node= only_inputs_symbol_parts(back_package[4].clone(), vec![s.clone(),p0_str.clone()]);
@@ -550,7 +548,7 @@ impl LatexEngine {
 
                         let a_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![s.clone(),p0_str.clone()]);
                         let b_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![d1_symbol.clone().unwrap(),p0_str.clone()]);
-                        let p_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![pre_chain.unwrap(),p1_str.clone()]);
+                        let p_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![to_insert,p1_str.clone()]);
 
                         let e_a=only_inputs_symbol_parts(back_package[0].clone(), vec![e_symbol,a_sym.clone()]);
                         let a_b=only_inputs_symbol_parts(back_package[0].clone(), vec![a_sym.clone(),b_sym.clone()]);
@@ -561,17 +559,9 @@ impl LatexEngine {
                     // inner 
                     x@_ =>{
                         let first=self.rec_backward(&x, back_package, level, final_model_end,d1_symbol.clone(),weight);
-                        let (p0_str,p1_str)=if level==0{
-                            let (_,_,weightform)=self.symbol_library.get_symbol("_Weight".to_string()).unwrap();
-                            let weight_splits = symbol_split(weightform.formul.as_str()).unwrap();
-                            let p0_temp=format!("({})",weight.0);
-                            let p1_temp=only_inputs_symbol_parts(weight_splits, vec![weight.0.to_string(),weight.1.to_string()]);
-                            (p0_temp,p1_temp)
-                        }else{
-                            (format!("n_{}",level-1),if level>1{format!("n_{}",level-2)}else{format!("({})",weight.0)})
-                        };
+                        let (p0_str,p1_str)=self.get_p0p1(level,weight);
 
-                        let to_insert=pre_chain.unwrap_or("w".to_string());
+                        
                         let p_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![to_insert,p1_str.clone()]);
                         let a_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![d1_symbol.clone().unwrap(),p0_str.clone()]);
 
@@ -594,6 +584,17 @@ impl LatexEngine {
             }
         };
         result
+    }
+    fn get_p0p1(&self,level: usize,weight: (usize,usize))->(String,String){
+        if level==0{
+            let (_,_,weightform)=self.symbol_library.get_symbol("_Weight".to_string()).unwrap();
+            let weight_splits = symbol_split(weightform.formul.as_str()).unwrap();
+            let p0_temp=format!("({})",weight.0);
+            let p1_temp=only_inputs_symbol_parts(weight_splits, vec![weight.0.to_string(),weight.1.to_string()]);
+            (p0_temp,p1_temp)
+        }else{
+            (format!("n_{}",level-1),if level>1{format!("n_{}",level-2)}else{format!("({})",weight.0)})
+        }
     }
     
     fn get_symbol_if_func(target: &DiffChainNode)->Option<String>{
