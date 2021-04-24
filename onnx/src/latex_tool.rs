@@ -267,7 +267,7 @@ impl LatexEngine {
         let final_node = latex_result.senario.last().unwrap();
         // println!("chain test {:?}", s);
 
-        let backward=self.gen_backward_value(&s,ErrorResultTo::Total);
+        let backward=self.gen_backward_value(&s,ErrorResultTo::Total,(1,2));
         println!("backward: {}",backward);
         latex_result.symbol_map = self.symbol_map.clone();
         self.flush();
@@ -496,10 +496,10 @@ impl LatexEngine {
         }
     }
     // max three 
-    fn rec_backward(&self, target: &DiffChainNode, back_package: &Vec<(&str, Vec<(&str,&str)>)>, level: usize,final_model_end: ErrorResultTo,pre_chain: Option<String>)->String{
+    fn rec_backward(&self, target: &DiffChainNode, back_package: &Vec<(&str, Vec<(&str,&str)>)>, level: usize,final_model_end: ErrorResultTo,pre_chain: Option<String>,weight: (usize,usize))->String{
         let result= match *target {
             DiffChainNode::Sum(ref d, many) => {
-                let inner = self.rec_backward(&d, back_package,level+1,final_model_end,pre_chain);
+                let inner = self.rec_backward(&d, back_package,level+1,final_model_end,pre_chain,weight);
                 let start_symbol = format!("n_{}",level);
                 let end_symbol=(many-1).to_string();
                 except_self_symbol_parts(back_package[1].clone(), vec![inner],vec![start_symbol,end_symbol])
@@ -514,49 +514,77 @@ impl LatexEngine {
 
                 match d[0].clone(){
                     DiffChainNode::Weightable(i, ref s) => {
+                        let (p0,p1)= (level-1,level-2);
+                        let p0_str = format!("n_{}",p0);
+                        let p1_str =format!("n_{}",p1);
                         let e_symbol=match final_model_end{
                             ErrorResultTo::Total => {
-                                let pre_num = format!("n_{}",level-1);
-                                let last_node= only_inputs_symbol_parts(back_package[4].clone(), vec![s.clone(),pre_num]);
-                               self.gen_error_symbol(vec!["total".to_string(),last_node])
+                                let last_node= only_inputs_symbol_parts(back_package[4].clone(), vec![s.clone(),p0_str.clone()]);
+                                self.gen_error_symbol(vec!["total".to_string(),last_node])
                             }
                             ErrorResultTo::Innner(iy) => {
                                 self.gen_error_symbol(vec![s.clone(),i.to_string()])
                             }
                         };
-                        let e_a=only_inputs_symbol_parts(back_package[0].clone(), vec![e_symbol,s.clone()]);
-                        let a_p=only_inputs_symbol_parts(back_package[0].clone(), vec![s.clone(),pre_chain.unwrap()]);
+                        let a_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![s.clone(),p0_str.clone()]);
+                        let p_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![pre_chain.unwrap(),p1_str.clone()]);
+                        
+                        let e_a=only_inputs_symbol_parts(back_package[0].clone(), vec![e_symbol,a_sym.clone()]);
+                        let a_p=only_inputs_symbol_parts(back_package[0].clone(), vec![a_sym.clone(),p_sym]);
 
                         only_inputs_symbol_parts(back_package[2].clone(), vec![e_a,a_p])
                     }
                     DiffChainNode::UnWeightable(i,ref s) => {
+                        let (p0,p1)= (level-1,level-2);
+                        let p0_str = format!("n_{}",p0);
+                        let p1_str =format!("n_{}",p1);
                         let e_symbol=match final_model_end{
                             ErrorResultTo::Total => {
-                                let pre_num = format!("n_{}",level-1);
-                                let last_node= only_inputs_symbol_parts(back_package[4].clone(), vec![s.clone(),pre_num]);
-                               self.gen_error_symbol(vec!["total".to_string(),last_node])
+                                let last_node= only_inputs_symbol_parts(back_package[4].clone(), vec![s.clone(),p0_str.clone()]);
+                                self.gen_error_symbol(vec!["total".to_string(),last_node])
                             }
                             ErrorResultTo::Innner(iy) => {
                                 self.gen_error_symbol(vec![s.clone(),i.to_string()])
                             }
                         };
-                        let e_a=only_inputs_symbol_parts(back_package[0].clone(), vec![e_symbol,s.clone()]);
-                        let a_b=only_inputs_symbol_parts(back_package[0].clone(), vec![s.clone(),d1_symbol.clone().unwrap()]);
-                        let b_p=only_inputs_symbol_parts(back_package[0].clone(), vec![d1_symbol.clone().unwrap(),pre_chain.unwrap()]);
+
+                        let a_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![s.clone(),p0_str.clone()]);
+                        let b_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![d1_symbol.clone().unwrap(),p0_str.clone()]);
+                        let p_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![pre_chain.unwrap(),p1_str.clone()]);
+
+                        let e_a=only_inputs_symbol_parts(back_package[0].clone(), vec![e_symbol,a_sym.clone()]);
+                        let a_b=only_inputs_symbol_parts(back_package[0].clone(), vec![a_sym.clone(),b_sym.clone()]);
+                        let b_p=only_inputs_symbol_parts(back_package[0].clone(), vec![b_sym.clone(),p_sym]);
                        
                         only_inputs_symbol_parts(back_package[3].clone(), vec![e_a,a_b,b_p])
                     }
                     // inner 
                     x@_ =>{
-                        let first=self.rec_backward(&x, back_package, level+1, final_model_end,d1_symbol.clone());
-                        let to_insert=pre_chain.unwrap_or("hello".to_string());
+                        let first=self.rec_backward(&x, back_package, level, final_model_end,d1_symbol.clone(),weight);
+                        let (p0_str,p1_str)=if level==0{
+                            let (_,_,weightform)=self.symbol_library.get_symbol("_Weight".to_string()).unwrap();
+                            let weight_splits = symbol_split(weightform.formul.as_str()).unwrap();
+                            let p0_temp=format!("({})",weight.0);
+                            let p1_temp=only_inputs_symbol_parts(weight_splits, vec![weight.0.to_string(),weight.1.to_string()]);
+                            (p0_temp,p1_temp)
+                        }else{
+                            (format!("n_{}",level-1),if level>1{format!("n_{}",level-2)}else{format!("({})",weight.0)})
+                        };
+
+                        let to_insert=pre_chain.unwrap_or("w".to_string());
+                        let p_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![to_insert,p1_str.clone()]);
+                        let a_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![d1_symbol.clone().unwrap(),p0_str.clone()]);
+
                         if let Some(ref d2)=d2_symbol{
-                            let a_b=only_inputs_symbol_parts(back_package[0].clone(), vec![d1_symbol.clone().unwrap(),d2.clone()]);
-                            let b_f=only_inputs_symbol_parts(back_package[0].clone(), vec![d2.clone(),to_insert]);
+                            
+                            let b_sym=only_inputs_symbol_parts(back_package[4].clone(), vec![d2.clone(),p0_str.clone()]);
+
+                            let a_b=only_inputs_symbol_parts(back_package[0].clone(), vec![a_sym.clone(),b_sym.clone()]);
+                            let b_f=only_inputs_symbol_parts(back_package[0].clone(), vec![b_sym,p_sym]);
                             only_inputs_symbol_parts(back_package[3].clone(), vec![first,a_b,b_f])
                         }else{
-                            let b_f=only_inputs_symbol_parts(back_package[0].clone(), vec![d1_symbol.clone().unwrap(),to_insert]);
-                            only_inputs_symbol_parts(back_package[2].clone(), vec![first,b_f])
+                            let a_f=only_inputs_symbol_parts(back_package[0].clone(), vec![a_sym.clone(),p_sym]);
+                            only_inputs_symbol_parts(back_package[2].clone(), vec![first,a_f])
                         }
                     }
                 }
@@ -588,7 +616,7 @@ impl LatexEngine {
     }
     
 
-    pub fn gen_backward_value(&self, target: &DiffChainNode,final_model_end: ErrorResultTo)->String{
+    pub fn gen_backward_value(&self, target: &DiffChainNode,final_model_end: ErrorResultTo,weight: (usize,usize))->String{
         let (_,_,form)=self.symbol_library.get_symbol("_Diff".to_string()).unwrap();
         let d_splits = symbol_split(form.formul.as_str()).unwrap();
         let (_,_,sform)=self.symbol_library.get_symbol("_Sum".to_string()).unwrap();
@@ -601,7 +629,7 @@ impl LatexEngine {
         let under_splits = symbol_split(underform.formul.as_str()).unwrap();
 
         let vv=vec![d_splits,s_splits,c2_splits,c3_splits,under_splits];
-        self.rec_backward(target,&vv, 0, final_model_end,None)
+        self.rec_backward(target,&vv, 0, final_model_end,None,weight)
     }
 }
 

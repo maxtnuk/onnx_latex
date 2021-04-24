@@ -37,6 +37,12 @@
             formul: "{#_0}_{#_1}",
             diff: None,
             symbol: None
+        ),
+        "_Weight":(
+            inputs: 2,
+            formul: "(#_0,#_1)",
+            diff: None,
+            symbol: None
         )
     }
 )
