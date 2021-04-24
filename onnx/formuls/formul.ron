@@ -13,6 +13,30 @@
             formul: "\\frac{\\partial #_0}{\\partial #_1}",
             diff: Some("#"),
             symbol: None
+        ),
+        "_Sum":(
+            inputs: 2,
+            formul: "\\sum_{@_0=0}^{@_1} (#_0)",
+            diff: None,
+            symbol: None
+        ),
+        "_Chain2":(
+            inputs: 2,
+            formul: "#_0 \\times #_1",
+            diff: None,
+            symbol: None
+        ),
+        "_Chain3":(
+            inputs: 2,
+            formul: "#_0 \\times #_1 \\times #_2",
+            diff: None,
+            symbol: None
+        ),
+        "_Under":(
+            inputs: 2,
+            formul: "{#_0}_{#_1}",
+            diff: None,
+            symbol: None
         )
     }
 )

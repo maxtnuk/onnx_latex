@@ -10,7 +10,7 @@
         "Clip":(
             inputs: 1,
             formul: "min(max(#_0,@_0),@_1)",
-            diff: Some("bt(#_0,#_0)")
+            diff: None
         )
     }
 )

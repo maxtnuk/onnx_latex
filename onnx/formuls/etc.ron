@@ -15,7 +15,7 @@
             symbol: Some("\\overline{Input}")
         ),
         "Error" :(
-            symbol: Some("E_{#}")
+            symbol: Some("E_{(#_0,#_1)}")
         )
     }
 )

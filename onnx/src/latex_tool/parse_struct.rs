@@ -2,14 +2,6 @@ use std::collections::HashMap;
 
 use nom::return_error;
 use nom::{
-    combinator::verify,
-    combinator::map_res,
-    error::{
-        context, convert_error, make_error, ContextError, ErrorKind, ParseError, VerboseError,
-    },
-    number::complete::{be_u32, be_u8},
-};
-use nom::{
     branch::alt,
     bytes::complete::{escaped, tag, take, take_until, take_while},
     character::{
@@ -22,6 +14,14 @@ use nom::{
     number::complete::double,
     sequence::{delimited, preceded, separated_pair, terminated, tuple},
     switch, IResult,
+};
+use nom::{
+    combinator::map_res,
+    combinator::verify,
+    error::{
+        context, convert_error, make_error, ContextError, ErrorKind, ParseError, VerboseError,
+    },
+    number::complete::{be_u32, be_u8},
 };
 
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,17 @@ fn from_num(input: &str) -> Result<u8, std::num::ParseIntError> {
 fn num_primary(input: &str) -> IResult<&str, u8> {
     map_res(take(1usize), from_num)(input)
 }
+pub fn only_inputs_symbol_parts(original: (&str, Vss), x_in: Vec<String>) -> String {
+    insert_symbol_parts(original, x_in, Vec::new(), "".to_string())
+}
+pub fn except_self_symbol_parts(
+    original: (&str, Vss),
+    x_in: Vec<String>,
+    a_in: Vec<String>,
+) -> String {
+    insert_symbol_parts(original, x_in, a_in, "".to_string())
+}
+
 pub fn insert_symbol_parts(
     original: (&str, Vss),
     x_in: Vec<String>,
@@ -107,12 +118,12 @@ impl DebugValue {
             }
             DebugValue::Object(a) => "".to_string(),
             DebugValue::Tuple(a) => {
-                if a.len()==1{
+                if a.len() == 1 {
                     a[0].shallow_to_string()
-                }else{
+                } else {
                     "".to_string()
                 }
-            },
+            }
             DebugValue::Undefined(s) => s.clone(),
         }
     }
@@ -160,7 +171,6 @@ fn boolean<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, bool,
     alt((parse_true, parse_false))(input)
 }
 
-
 fn string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, &'a str, E> {
@@ -170,7 +180,6 @@ fn string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
         preceded(char('\"'), cut(terminated(parse_str, char('\"')))),
     )(i)
 }
-
 
 fn array<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
@@ -187,6 +196,7 @@ fn array<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
         ),
     )(i)
 }
+//
 
 fn key_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
@@ -213,7 +223,10 @@ fn hash<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
                 map(
                     separated_list0(preceded(sp, char(',')), key_value),
                     |tuple_vec| {
-                        tuple_vec.iter().map(|(k,v)| (k.to_string(),v.clone())).collect()
+                        tuple_vec
+                            .iter()
+                            .map(|(k, v)| (k.to_string(), v.clone()))
+                            .collect()
                     },
                 ),
                 preceded(sp, char('}')),
@@ -231,7 +244,7 @@ fn tuple_it<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
         preceded(
             preceded(take_while(|ch| is_alphanumeric(ch as u8)), char('(')),
             cut(terminated(
-            separated_list0(preceded(sp, char(',')), json_value),
+                separated_list0(preceded(sp, char(',')), json_value),
                 preceded(sp, char(')')),
             )),
         ),
@@ -254,7 +267,7 @@ fn raw_string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, &'a str, E> {
     // println!("raw_string {}",i);
-    context("constant", verify(parse_str,|s: &str| !s.contains(",")))(i)
+    context("constant", verify(parse_str, |s: &str| !s.contains(",")))(i)
 }
 /// here, we apply the space parser before trying to parse a value
 fn json_value<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
