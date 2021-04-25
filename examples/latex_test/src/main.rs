@@ -24,7 +24,7 @@ fn test_part<F: AsRef<Path>>(path: F)->TractResult<()>{
     let result=engine.parse_plan(&model, tvec![input.into()],ParseMode::Full);
 
     for i in 0..model.model().nodes.len(){
-        println!("form: {}",result.get_node_formul(i));
+        println!("backward: {}",result.get_node_backward(i));
     }
      // println!("{}",result.gen_json());
     Ok(())
