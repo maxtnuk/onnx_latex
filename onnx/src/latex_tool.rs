@@ -1,20 +1,11 @@
 use parse_struct::{except_self_symbol_parts, only_inputs_symbol_parts};
-use ron::Value;
-use serde_json::error;
-use tract_hir::{
-    internal::{OpState, SessionState},
-    tract_core::itertools::Itertools,
-};
+use tract_hir::internal::{OpState, SessionState};
 
 use crate::{prelude::*, tract_hir::infer::InferenceOp};
 use nom::error::ErrorKind;
+use std::fmt::Display;
 use std::hash::Hash;
-use std::{borrow::Borrow, collections::btree_set::Difference, fmt::Debug};
-use std::{
-    borrow::Cow,
-    collections::{BTreeMap, HashMap},
-    fmt::Display,
-};
+use std::{borrow::Borrow, fmt::Debug};
 
 use self::{
     node_info::{Formul, FormulKind, FormulNode},
@@ -111,10 +102,6 @@ pub struct LatexEngine {
     pub activation_count: usize,
     pub symbol_library: SymbolLibrary,
 }
-enum InputsType {
-    Multi(Vec<String>),
-    Single(String),
-}
 pub enum ErrorResultTo {
     Total,
     Innner(usize),
@@ -177,7 +164,7 @@ impl LatexEngine {
                 }
             }
 
-            let op_name = node.op().name();
+            // let op_name = node.op().name();
 
             // input part
             let mut inputs: TVec<Arc<Tensor>> = tvec![];
@@ -249,28 +236,28 @@ impl LatexEngine {
         let model = plan.model();
         let senario = symbol_result.senario.clone();
         let last_point = senario.last().unwrap();
-        
-        for i in senario.iter(){
+
+        for i in senario.iter() {
             let op_name = model.node(*i).op().name();
             if op_name.to_string() != "Gemm" {
                 continue;
             }
-            self.gen_each_back(plan, symbol_result, *i,*last_point ,which)?;
+            self.gen_each_back(plan, symbol_result, *i, *last_point, which)?;
         }
         Ok(())
     }
-    pub fn gen_each_back( &mut self,
+    pub fn gen_each_back(
+        &mut self,
         plan: &InferencePlan,
         symbol_result: &mut LatexResult,
         index: usize,
         last_point: usize,
-        which: (usize, usize)
-    )->Result<(),std::io::Error>{
+        which: (usize, usize),
+    ) -> Result<(), std::io::Error> {
         let model = plan.model();
         let (_, _, form) = self.symbol_library.get_symbol("_Diff").unwrap();
         let d_splits = symbol_split(form.formul.as_str()).unwrap();
 
-        let op_name = model.node(index).op().name();
         let (symbol, shape) = symbol_result.symbol_map[index]
             .as_ref()
             .map(|s| (s.symbol.clone(), s.shape.clone()))
@@ -278,12 +265,14 @@ impl LatexEngine {
                 std::io::ErrorKind::NotFound,
                 "not found index",
             ))?;
-        
-        let n_shape= shape.get(1).unwrap_or(shape.get(0).ok_or(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "not found shape 0",
-        ))?);
-        if *n_shape<=which.0{
+
+        let n_shape = shape
+            .get(1)
+            .unwrap_or(shape.get(0).ok_or(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "not found shape 0",
+            ))?);
+        if *n_shape <= which.0 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "which's size exceed shape range",
@@ -437,22 +426,7 @@ impl LatexEngine {
         }
         Some(fkind)
     }
-    #[deprecated]
-    fn insert_parts(&self, splits: Vec<&str>, inputs: InputsType) -> String {
-        let mut temp = String::new();
-        temp += splits[0];
-        for (i, ts) in (1..splits.len()).enumerate() {
-            match inputs {
-                InputsType::Multi(ref x) => {
-                    temp += &(x[i].to_owned() + splits[ts]);
-                }
-                InputsType::Single(ref x) => {
-                    temp += &(x.clone() + splits[ts]);
-                }
-            }
-        }
-        temp
-    }
+
     //  # input,$ self, @: attribute
     fn raw_parse_symbol(&self, original: String, origin: usize, inputs: Vec<String>) -> String {
         let sym_node = self.symbol_map[origin].as_ref().unwrap();
@@ -606,7 +580,7 @@ impl LatexEngine {
                                 );
                                 self.gen_error_symbol(vec!["total".to_string(), last_node])
                             }
-                            ErrorResultTo::Innner(iy) => {
+                            ErrorResultTo::Innner(_) => {
                                 self.gen_error_symbol(vec![s.clone(), i.to_string()])
                             }
                         };
@@ -642,7 +616,7 @@ impl LatexEngine {
                                 );
                                 self.gen_error_symbol(vec!["total".to_string(), last_node])
                             }
-                            ErrorResultTo::Innner(iy) => {
+                            ErrorResultTo::Innner(_) => {
                                 self.gen_error_symbol(vec![s.clone(), i.to_string()])
                             }
                         };
@@ -765,7 +739,7 @@ impl LatexEngine {
         }
     }
     fn gen_error_symbol(&self, target: Vec<String>) -> String {
-        let (e_symbol, fk, form) = self.symbol_library.get_symbol("Error").unwrap();
+        let (e_symbol, _, _) = self.symbol_library.get_symbol("Error").unwrap();
         let splits = symbol_split(e_symbol.as_str()).unwrap();
         insert_symbol_parts(splits, target, Vec::new(), "".to_string())
     }
