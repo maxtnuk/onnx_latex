@@ -8,7 +8,8 @@ members = [
     "onnx-opl",
     "onnx",
     "examples/latex_test",
-    "latex_gen"
+    "latex_gen",
+    "server"
 ]
 
 [profile.release]
