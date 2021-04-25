@@ -21,11 +21,16 @@ fn test_part<F: AsRef<Path>>(path: F)->TractResult<()>{
     let input = tract_ndarray::arr1(&vals).into_shape((64, 1000)).unwrap();
     let mut engine=LatexEngine::new();
 
-    let result=engine.parse_plan(&model, tvec![input.into()],ParseMode::Full);
-
-    for i in 0..model.model().nodes.len(){
-        println!("backward: {}",result.get_node_backward(i));
+    let mut result=engine.parse_plan(&model, tvec![input.into()],ParseMode::Full);
+    let parse_result=engine.gen_back_total(&model, &mut result, (100000,4));
+    if parse_result.is_ok(){
+        for i in 0..model.model().nodes.len(){
+            println!("backward: {}",result.get_node_backward(i));
+        }   
+    }else{
+        println!("message: {:?}",parse_result.err());
     }
+    
      // println!("{}",result.gen_json());
     Ok(())
 }
@@ -72,7 +77,7 @@ fn test_two_info()->TractResult<()>{
 
 #[test]
 fn test_two_layer()-> TractResult<()>{
-    test_part("test_models/l2s.onnx")
+    test_part("test_models/l2.onnx")
 }
 
 #[test]
