@@ -4,8 +4,23 @@ use tract_ndarray::Array;
 use tract_onnx::prelude::*;
 use tract_onnx::latex_tool::*;
 use rand::prelude::*;
+// trait Trait {
+//     fn print_hello(&self);
+// }
+
+// impl Trait for i32 {
+//     fn print_hello(&self) {
+//         println!("hello");
+//     }
+// }
+
+// fn returns_a_trait_object() -> impl Trait {
+//     5
+// }
 
 fn main() -> TractResult<()> {
+    // let result = returns_a_trait_object();
+    // result.print_hello();
     Ok(())
 }
 fn test_part<F: AsRef<Path>>(path: F)->TractResult<()>{
@@ -16,6 +31,7 @@ fn test_part<F: AsRef<Path>>(path: F)->TractResult<()>{
     // optimize the model
     // make the model runnable and fix its inputs and outputs
     .into_runnable()?;
+
     let mut rng = thread_rng();
     let vals: Vec<_> = (0..64000).map(|_| rng.gen::<f32>()).collect();
     let input = tract_ndarray::arr1(&vals).into_shape((64, 1000)).unwrap();
@@ -42,6 +58,8 @@ fn test_info<F: AsRef<Path>>(path: F)->TractResult<()>{
         // optimize the model
         // make the model runnable and fix its inputs and outputs
         .into_runnable()?;
+    // let mm = model.model();
+    // println!("input shape{}",mm.node(0).)
 
     for n in model.model().nodes(){
         let op_name=n.op().name();
@@ -57,6 +75,7 @@ fn test_info<F: AsRef<Path>>(path: F)->TractResult<()>{
             
         }
         for i in n.outputs.iter(){
+            println!("out test:{:?}",i.fact.shape);
             for j in i.successors.iter(){
                 println!("output: {:?}",j); 
             }
