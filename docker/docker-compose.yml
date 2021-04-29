@@ -2,8 +2,8 @@ version: "3"
 services:
   server:
     build:
-        context: .
-        dockerfile: Dockerfile
+        context: ../
+        dockerfile: ./docker/Dockerfile
     image: latex_engine:latest 
     ports:
       - "1234:8080"

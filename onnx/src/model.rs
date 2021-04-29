@@ -223,7 +223,7 @@ impl Onnx {
             parent_graphs: vec![],
             onnx_operator_set_version,
         };
-        println!("graph {:?}",graph);
+        // println!("graph {:?}",graph);
         ctx.parse_graph(graph.as_ref().unwrap())
     }
 }
