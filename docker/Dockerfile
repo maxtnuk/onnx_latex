@@ -1,4 +1,4 @@
-FROM rust:1.51-slim-buster
+FROM rust:1.51-slim-buster as build
 ENV PKG_CONFIG_ALLOW_CROSS=1
 
 WORKDIR /usr/src/server
@@ -13,5 +13,10 @@ COPY ./server ./server
 RUN ls -al ./onnx
 
 RUN cd server && cargo install --path .
+
+FROM gcr.io/distroless/cc-debian10
+
+COPY --from=build /usr/local/cargo/bin/server /usr/local/bin/server
+
 EXPOSE 8080
 CMD ["server"]

@@ -4,7 +4,7 @@ use std::io::Error;
 use std::io::Result;
 use std::{io::ErrorKind, path::Path};
 
-use ron::de::from_reader;
+use ron::{de::from_reader, from_str};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -70,4 +70,7 @@ pub fn read_ron<P: AsRef<Path>>(path: P) -> Result<Formul> {
     let result: Formul =
         from_reader(f).map_err(|e| Error::new(ErrorKind::InvalidInput, format!("{:?}", e)))?;
     Ok(result)
+}
+pub fn read_str(input: &str) -> Result<Formul>{
+    from_str::<Formul>(input).map_err(|e| Error::new(ErrorKind::InvalidInput, format!("{:?}", e)))
 }

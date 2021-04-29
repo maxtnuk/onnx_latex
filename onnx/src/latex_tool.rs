@@ -61,15 +61,20 @@ pub struct SymbolLibrary {
 impl SymbolLibrary {
     fn new() -> Self {
         // println!("{}",concat!(env!("OUT_DIR"), "/formuls/formul.ron"));
-        let func_info =
-            node_info::read_ron(concat!(env!("CARGO_MANIFEST_DIR"), "/formuls/formul.ron"))
-                .expect("formul error");
-        let etc_info = node_info::read_ron(concat!(env!("CARGO_MANIFEST_DIR"), "/formuls/etc.ron"))
-            .expect("etc error");
-        let activation_info = node_info::read_ron(concat!(
+        let func_info = node_info::read_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/formuls/formul.ron"
+        )))
+        .expect("formul error");
+        let etc_info = node_info::read_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/formuls/etc.ron"
+        )))
+        .expect("etc error");
+        let activation_info = node_info::read_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/formuls/activation.ron"
-        ))
+        )))
         .expect("activation error");
         SymbolLibrary {
             func: func_info,
