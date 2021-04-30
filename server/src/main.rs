@@ -15,9 +15,11 @@ use std::{
     fs::File,
     io::{Cursor, Read, Seek, SeekFrom, Write},
     path::Path,
+    usize,
 };
 
 use serde::Deserialize;
+use serde::Serialize;
 
 use chrono::prelude::*;
 
@@ -98,8 +100,8 @@ async fn parse_file(mut payload: Multipart) -> Result<HttpResponse, Error> {
         .unwrap();
     let mut engine = LatexEngine::new();
 
-    let result = engine.parse_plan(&model, tvec![input.into()], ParseMode::Full);
-
+    let mut result = engine.parse_plan(&model, tvec![input.into()], ParseMode::Full);
+    // result.erase_slash();
     Ok(HttpResponse::Ok().json(result))
 }
 
@@ -115,17 +117,46 @@ fn read_model(file: &mut dyn Read) -> TractResult<InferencePlan> {
 }
 #[derive(Deserialize)]
 struct BackwardParam {
-    layer_idx: u32,
-    weight_idx: u32,
-    depth: Option<u32>,
+    layer_node: usize,
+    layer_idx: usize,
+    weight_idx: usize,
+    depth: Option<usize>,
+}
+
+#[derive(Serialize)]
+struct BackwardAnswer{
+    node: usize,
+    layer_idx: usize,
+    weight_idx: usize, 
+    symbol: String,
+    value: String, 
 }
 
 #[post("/backward")]
-async fn backward(web::Query(info): web::Query<BackwardParam>, req_body: web::Json<LatexResult>) -> impl Responder{
-    // let mut engine = LatexEngine::new();
+async fn backward(
+    web::Query(info): web::Query<BackwardParam>,
+    req_body: web::Json<LatexResult>,
+) -> Result<HttpResponse, Error> {
+    let engine = LatexEngine::new();
+    let lr = req_body.into_inner();
+    let last_point = lr.senario.last().cloned().unwrap();
+
+    let (s,v) = engine.gen_each_back(
+    &lr,
+        (info.layer_node, last_point),
+        (info.layer_idx, info.weight_idx),
+        info.depth,
+    ).map_err(|x| MyError::ParseError)?;
+    // let r = |s: &String| ->String{s.replace(r#"\\"#,r#"\"#)};
     
-    // let result= engine.gen_back_total(symbol_result, which)
-    HttpResponse::Ok()
+    let result= BackwardAnswer{
+        node: info.layer_node,
+        layer_idx: info.layer_idx,
+        weight_idx: info.weight_idx,
+        symbol: s,
+        value: v
+    };
+    Ok(HttpResponse::Ok().json(result))
 }
 
 #[get("/")]
@@ -145,12 +176,14 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
     std::fs::create_dir_all("./tmp").unwrap();
 
-    HttpServer::new(|| App::new()
-    .service(hello)
-    .service(echo)
-    .service(backward)
-    .service(parse_file))
-        .bind("0.0.0.0:8080")?
-        .run()
-        .await
+    HttpServer::new(|| {
+        App::new()
+            .service(hello)
+            .service(echo)
+            .service(backward)
+            .service(parse_file)
+    })
+    .bind("0.0.0.0:8080")?
+    .run()
+    .await
 }

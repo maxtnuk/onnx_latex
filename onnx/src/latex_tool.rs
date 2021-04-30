@@ -52,6 +52,17 @@ pub struct LatexNode {
     pub backward_symbol: String,
     pub op_attributes: DebugValue,
 }
+impl LatexNode{
+    // except prefix 
+    pub fn erase_slash(&mut self){
+        let r = |s: &String| ->String{s.replace(r#"\\"#,r#"\"#)};
+        self.symbol=r(&self.symbol);
+        self.value=r(&self.value);
+        self.backward_symbol=r(&self.backward_symbol);
+        self.backward_value=r(&self.backward_value);
+
+    }
+}
 
 #[derive(Default, Clone)]
 pub struct SymbolLibrary {
@@ -235,7 +246,7 @@ impl LatexEngine {
         latex_result
     }
     pub fn gen_back_total(
-        &mut self,
+        &self,
         symbol_result: &mut LatexResult,
         which: (usize, usize),
         depth: Option<usize>
@@ -252,17 +263,22 @@ impl LatexEngine {
             if op_name.to_string() != "Gemm" {
                 continue;
             }
-            self.gen_each_back(symbol_result, (*i, *last_point), which, depth)?;
+            let (s,v)=self.gen_each_back(symbol_result, (*i, *last_point), which, depth)?;
+            if let Some(f)= symbol_result.symbol_map[*i].as_mut(){
+                f.backward_value=v;
+                f.backward_symbol=s;
+            }
         }
         Ok(())
     }
+    //  return(symbol,value)
     pub fn gen_each_back(
-        &mut self,
-        symbol_result: &mut LatexResult,
+        &self,
+        symbol_result: &LatexResult,
         n_indxs: (usize,usize),
         which: (usize, usize),
         depth: Option<usize>
-    ) -> Result<(), std::io::Error> {
+    ) -> Result<(String,String), std::io::Error> {
         let (index,last_point)= n_indxs;
         let (_, _, form) = self.symbol_library.get_symbol("_Diff").unwrap();
         let d_splits = symbol_split(form.formul.as_str()).unwrap();
@@ -300,12 +316,7 @@ impl LatexEngine {
 
         let down_symbol = self.gen_w_symbol_inner(symbol, which, true);
 
-        if let Some(r) = symbol_result.symbol_map[index].as_mut() {
-            r.backward_value = backward;
-            r.backward_symbol =
-                only_inputs_symbol_parts(d_splits.clone(), vec![e_symbol, down_symbol])
-        }
-        Ok(())
+        Ok((backward,only_inputs_symbol_parts(d_splits.clone(), vec![e_symbol, down_symbol])))
     }
 
     fn gen_w_symbol_inner(&self, target: String, index: (usize, usize), deeper: bool) -> String {
@@ -816,6 +827,13 @@ impl LatexResult {
     pub fn gen_json(&self) -> String {
         let j = serde_json::to_string_pretty(self).unwrap();
         j
+    }
+    pub fn erase_slash(&mut self){
+         for n in self.symbol_map.iter_mut(){
+             if let Some(r)=n{
+                r.erase_slash();
+             }
+         }
     }
 }
 
