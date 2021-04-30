@@ -1,6 +1,6 @@
 use actix_multipart::Multipart;
 use actix_web::{
-    dev::HttpResponseBuilder,
+    dev::{HttpResponseBuilder, Payload},
     error, get,
     http::{header, StatusCode},
     post, web, App, Error, HttpResponse, HttpServer, Responder,
@@ -11,7 +11,13 @@ use tract_onnx::{prelude::*, tract_hir::infer::InferenceOp};
 
 use derive_more::{Display, Error};
 use rand::prelude::*;
-use std::{fs::File, io::{Cursor, Read, Seek, SeekFrom, Write}, path::Path};
+use std::{
+    fs::File,
+    io::{Cursor, Read, Seek, SeekFrom, Write},
+    path::Path,
+};
+
+use serde::Deserialize;
 
 use chrono::prelude::*;
 
@@ -59,17 +65,7 @@ async fn parse_file(mut payload: Multipart) -> Result<HttpResponse, Error> {
     let mut field = payload.try_next().await?.ok_or(MyError::BadClientData)?;
 
     let content_type = field.content_disposition().unwrap();
-    // let filename = content_type.get_filename().unwrap();
-    // let cur_time = Local::now().format("%Y-%m-%d_%H:%M:%S").to_string();
-    // let filepath = format!(
-    //     "./tmp/{}_{}",
-    //     cur_time,
-    //     sanitize_filename::sanitize(&filename)
-    // );
-
-    // File::create is blocking operation, use threadpool
-    // let tmp = filepath.clone();
-    let mut f  = Cursor::new(Vec::new());
+    let mut f = Cursor::new(Vec::new());
     // let mut f = web::block(|| std::fs::File::create(tmp).map_err(|_| MyError::NewFile)).await?;
     // Field in turn is stream of *Bytes* object
     while let Some(chunk) = field.next().await {
@@ -103,7 +99,6 @@ async fn parse_file(mut payload: Multipart) -> Result<HttpResponse, Error> {
     let mut engine = LatexEngine::new();
 
     let result = engine.parse_plan(&model, tvec![input.into()], ParseMode::Full);
-    
 
     Ok(HttpResponse::Ok().json(result))
 }
@@ -117,6 +112,20 @@ fn read_model(file: &mut dyn Read) -> TractResult<InferencePlan> {
         .into_runnable()?;
     // println!("{}",result.gen_json());
     Ok(model)
+}
+#[derive(Deserialize)]
+struct BackwardParam {
+    layer_idx: u32,
+    weight_idx: u32,
+    depth: Option<u32>,
+}
+
+#[post("/backward")]
+async fn backward(web::Query(info): web::Query<BackwardParam>, req_body: web::Json<LatexResult>) -> impl Responder{
+    // let mut engine = LatexEngine::new();
+    
+    // let result= engine.gen_back_total(symbol_result, which)
+    HttpResponse::Ok()
 }
 
 #[get("/")]
@@ -136,7 +145,11 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
     std::fs::create_dir_all("./tmp").unwrap();
 
-    HttpServer::new(|| App::new().service(hello).service(echo).service(parse_file))
+    HttpServer::new(|| App::new()
+    .service(hello)
+    .service(echo)
+    .service(backward)
+    .service(parse_file))
         .bind("0.0.0.0:8080")?
         .run()
         .await

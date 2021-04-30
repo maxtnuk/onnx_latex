@@ -41,8 +41,10 @@ where
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LatexNode {
     pub inputs: Vec<usize>,
+    pub outputs: Vec<usize>,
     pub symbol: String,
     pub value: String,
+    pub op_name: String,
     pub shape: Vec<usize>,
     pub forward_prefix: String,
     pub backward_prefix: String,
@@ -234,32 +236,28 @@ impl LatexEngine {
     }
     pub fn gen_back_total(
         &mut self,
-        plan: &InferencePlan,
         symbol_result: &mut LatexResult,
         which: (usize, usize),
     ) -> Result<(), std::io::Error> {
-        let model = plan.model();
         let senario = symbol_result.senario.clone();
         let last_point = senario.last().unwrap();
 
         for i in senario.iter() {
-            let op_name = model.node(*i).op().name();
+            let op_name = symbol_result.symbol_map[*i].as_ref().unwrap().op_name.clone();
             if op_name.to_string() != "Gemm" {
                 continue;
             }
-            self.gen_each_back(plan, symbol_result, *i, *last_point, which)?;
+            self.gen_each_back(symbol_result, *i, *last_point, which)?;
         }
         Ok(())
     }
     pub fn gen_each_back(
         &mut self,
-        plan: &InferencePlan,
         symbol_result: &mut LatexResult,
         index: usize,
         last_point: usize,
         which: (usize, usize),
     ) -> Result<(), std::io::Error> {
-        let model = plan.model();
         let (_, _, form) = self.symbol_library.get_symbol("_Diff").unwrap();
         let d_splits = symbol_split(form.formul.as_str()).unwrap();
 
@@ -287,7 +285,6 @@ impl LatexEngine {
         let start_node = DiffChainNode::Weightable(index, symbol.clone());
         // suppose total
         let expand_value = self.expand_diff_symbol(
-            model,
             symbol_result.symbol_map.as_ref(),
             start_node,
             last_point,
@@ -405,7 +402,7 @@ impl LatexEngine {
                 form.diff.unwrap_or("".to_string()),
             )
         } else {
-            let temp = op_name + "." + n_name_split[1];
+            let temp = op_name.to_owned() + "." + n_name_split[1];
             if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(temp.borrow()) {
                 fkind = n_type.clone();
                 (
@@ -425,9 +422,15 @@ impl LatexEngine {
             nn.op_attributes = op_parse::<(&str, ErrorKind)>(debug_op.as_str())
                 .unwrap_or(("", DebugValue::Undefined("".to_owned())))
                 .1;
+            nn.op_name=op_name.to_string();
             nn.symbol = symbol;
             nn.forward_prefix = forward_prefix;
             nn.backward_prefix = backward_prefix;
+            if node.outputs.len() !=0 && node.outputs[0].successors.len() !=0 {
+                for i in node.outputs[0].successors.iter(){
+                    nn.outputs.push(i.node);   
+                }
+            }
         }
         Some(fkind)
     }
@@ -466,7 +469,6 @@ impl LatexEngine {
     }
     pub fn expand_diff_symbol(
         &self,
-        model: &InferenceModel,
         symbol_map: &Vec<Option<LatexNode>>,
         target: DiffChainNode,
         error_node: usize,
@@ -489,12 +491,11 @@ impl LatexEngine {
                     DiffChainNode::UnWeightable(i, s) => {
                         println!("unwieghtable in chain: {}", i);
                         if i != error_node {
-                            let node = model.node(i);
-                            let into_node_id = node.outputs[0].successors[0].node;
+                            let node = symbol_map[i].as_ref().unwrap();
+                            let into_node_id = node.outputs[0];
 
                             let in_node = symbol_map[into_node_id].as_ref().unwrap();
                             let sum = self.expand_diff_symbol(
-                                model,
                                 symbol_map,
                                 DiffChainNode::Weightable(into_node_id, in_node.symbol.clone()),
                                 error_node,
@@ -517,18 +518,18 @@ impl LatexEngine {
             // first
             DiffChainNode::Weightable(i, s) => {
                 //
-                let node = model.node(i);
+                let node = symbol_map[i].as_ref().unwrap();
                 let mut result = Vec::new();
                 // println!("out length {}", node.outputs.len());
 
-                if node.outputs.len() != 0 && node.outputs[0].successors.len() != 0 {
-                    let into_node = node.outputs[0].successors[0].node;
+                if node.outputs.len() != 0 {
+                    let into_node = node.outputs[0];
                     let symbol_name = symbol_map[into_node].as_ref().unwrap().symbol.clone();
                     result.push(DiffChainNode::UnWeightable(into_node, symbol_name));
                 }
                 result.push(DiffChainNode::Weightable(i, s));
 
-                self.expand_diff_symbol(model, symbol_map, DiffChainNode::Chain(result), error_node)
+                self.expand_diff_symbol(symbol_map, DiffChainNode::Chain(result), error_node)
             }
             x @ _ => x,
         }
