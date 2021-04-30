@@ -238,26 +238,32 @@ impl LatexEngine {
         &mut self,
         symbol_result: &mut LatexResult,
         which: (usize, usize),
+        depth: Option<usize>
     ) -> Result<(), std::io::Error> {
         let senario = symbol_result.senario.clone();
         let last_point = senario.last().unwrap();
 
         for i in senario.iter() {
-            let op_name = symbol_result.symbol_map[*i].as_ref().unwrap().op_name.clone();
+            let op_name = symbol_result.symbol_map[*i]
+                .as_ref()
+                .unwrap()
+                .op_name
+                .clone();
             if op_name.to_string() != "Gemm" {
                 continue;
             }
-            self.gen_each_back(symbol_result, *i, *last_point, which)?;
+            self.gen_each_back(symbol_result, (*i, *last_point), which, depth)?;
         }
         Ok(())
     }
     pub fn gen_each_back(
         &mut self,
         symbol_result: &mut LatexResult,
-        index: usize,
-        last_point: usize,
+        n_indxs: (usize,usize),
         which: (usize, usize),
+        depth: Option<usize>
     ) -> Result<(), std::io::Error> {
+        let (index,last_point)= n_indxs;
         let (_, _, form) = self.symbol_library.get_symbol("_Diff").unwrap();
         let d_splits = symbol_split(form.formul.as_str()).unwrap();
 
@@ -284,13 +290,12 @@ impl LatexEngine {
 
         let start_node = DiffChainNode::Weightable(index, symbol.clone());
         // suppose total
-        let expand_value = self.expand_diff_symbol(
-            symbol_result.symbol_map.as_ref(),
-            start_node,
-            last_point,
-        );
+        let expand_value =
+            self.expand_diff_symbol(symbol_result.symbol_map.as_ref(), start_node, last_point);
+        
+        let e_option = depth.map(|x| ErrorResultTo::Innner(x)).unwrap_or(ErrorResultTo::Total);
 
-        let backward = self.gen_backward_value(&expand_value, ErrorResultTo::Total, which);
+        let backward = self.gen_backward_value(&expand_value, e_option, which);
         let e_symbol = self.gen_error_symbol(vec!["total".to_string(), "".to_string()]);
 
         let down_symbol = self.gen_w_symbol_inner(symbol, which, true);
@@ -422,13 +427,13 @@ impl LatexEngine {
             nn.op_attributes = op_parse::<(&str, ErrorKind)>(debug_op.as_str())
                 .unwrap_or(("", DebugValue::Undefined("".to_owned())))
                 .1;
-            nn.op_name=op_name.to_string();
+            nn.op_name = op_name.to_string();
             nn.symbol = symbol;
             nn.forward_prefix = forward_prefix;
             nn.backward_prefix = backward_prefix;
-            if node.outputs.len() !=0 && node.outputs[0].successors.len() !=0 {
-                for i in node.outputs[0].successors.iter(){
-                    nn.outputs.push(i.node);   
+            if node.outputs.len() != 0 && node.outputs[0].successors.len() != 0 {
+                for i in node.outputs[0].successors.iter() {
+                    nn.outputs.push(i.node);
                 }
             }
         }
@@ -546,21 +551,43 @@ impl LatexEngine {
     ) -> String {
         let result = match *target {
             DiffChainNode::Sum(ref d, many) => {
-                let inner = self.rec_backward(
-                    &d,
-                    back_package,
-                    level + 1,
-                    final_model_end,
-                    pre_chain,
-                    weight,
-                );
-                let start_symbol = format!("n_{}", level);
-                let end_symbol = (many - 1).to_string();
-                except_self_symbol_parts(
-                    back_package[1].clone(),
-                    vec![inner],
-                    vec![start_symbol, end_symbol],
-                )
+                match final_model_end{
+                    ErrorResultTo::Innner(i ) if i==level => {
+                        let s=  pre_chain.unwrap();
+                        let (p0_str, p1_str) =self.get_p0p1(level, weight, s.clone());
+                        let last_node = only_inputs_symbol_parts(
+                            back_package[4].clone(),
+                            vec![s.clone(), p0_str.clone()],
+                        );
+                        let e_sym=self.gen_error_symbol(vec!["total".to_string(), last_node]);
+                        let a_sym = only_inputs_symbol_parts(
+                            back_package[4].clone(),
+                            vec![s.clone(), p0_str.clone()],
+                        );
+                        only_inputs_symbol_parts(
+                            back_package[0].clone(),
+                            vec![e_sym, a_sym.clone()],
+                        )
+                    }
+                    _ => {
+                        let inner =self.rec_backward(
+                            &d,
+                            back_package,
+                            level + 1,
+                            final_model_end,
+                            pre_chain,
+                            weight,
+                        );
+                        let start_symbol = format!("n_{}", level);
+                        let end_symbol = (many - 1).to_string();
+                        except_self_symbol_parts(
+                            back_package[1].clone(),
+                            vec![inner],
+                            vec![start_symbol, end_symbol],
+                        )
+                    }
+                }
+             
             }
             DiffChainNode::Chain(ref d) => {
                 let d1_symbol = if let Some(x) = d.get(1) {
@@ -578,18 +605,11 @@ impl LatexEngine {
                 match d[0].clone() {
                     DiffChainNode::Weightable(i, ref s) => {
                         let (p0_str, p1_str) = self.get_p0p1(level, weight, s.clone());
-                        let e_symbol = match final_model_end {
-                            ErrorResultTo::Total => {
-                                let last_node = only_inputs_symbol_parts(
-                                    back_package[4].clone(),
-                                    vec![s.clone(), p0_str.clone()],
-                                );
-                                self.gen_error_symbol(vec!["total".to_string(), last_node])
-                            }
-                            ErrorResultTo::Innner(_) => {
-                                self.gen_error_symbol(vec![s.clone(), i.to_string()])
-                            }
-                        };
+                        let last_node = only_inputs_symbol_parts(
+                            back_package[4].clone(),
+                            vec![s.clone(), p0_str.clone()],
+                        );
+                        let e_symbol = self.gen_error_symbol(vec!["total".to_string(), last_node]);
 
                         let a_sym = only_inputs_symbol_parts(
                             back_package[4].clone(),
@@ -614,18 +634,11 @@ impl LatexEngine {
                     DiffChainNode::UnWeightable(i, ref s) => {
                         let (p0_str, p1_str) =
                             self.get_p0p1(level, weight, d1_symbol.clone().unwrap());
-                        let e_symbol = match final_model_end {
-                            ErrorResultTo::Total => {
-                                let last_node = only_inputs_symbol_parts(
-                                    back_package[4].clone(),
-                                    vec![s.clone(), p0_str.clone()],
-                                );
-                                self.gen_error_symbol(vec!["total".to_string(), last_node])
-                            }
-                            ErrorResultTo::Innner(_) => {
-                                self.gen_error_symbol(vec![s.clone(), i.to_string()])
-                            }
-                        };
+                        let last_node = only_inputs_symbol_parts(
+                            back_package[4].clone(),
+                            vec![s.clone(), p0_str.clone()],
+                        );
+                        let e_symbol =  self.gen_error_symbol(vec!["total".to_string(), last_node]);
 
                         let a_sym = only_inputs_symbol_parts(
                             back_package[4].clone(),
