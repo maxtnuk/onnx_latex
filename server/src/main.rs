@@ -1,30 +1,22 @@
 use actix_multipart::Multipart;
 use actix_web::{
-    dev::{HttpResponseBuilder, Payload},
+    dev::HttpResponseBuilder,
     error, get,
     http::{header, StatusCode},
     post, web, App, Error, HttpResponse, HttpServer, Responder,
 };
 use futures::{StreamExt, TryStreamExt};
-use tract_onnx::latex_tool::*;
-use tract_onnx::{prelude::*, tract_hir::infer::InferenceOp};
 
 use derive_more::{Display, Error};
-use rand::prelude::*;
+use latex_gen::{LatexEngine, LatexResult};
 use std::{
-    fs::File,
     io::{Cursor, Read, Seek, SeekFrom, Write},
-    path::Path,
     usize,
 };
 
 use serde::Deserialize;
 use serde::Serialize;
 
-use chrono::prelude::*;
-
-type InferencePlan =
-    SimplePlan<InferenceFact, Box<dyn InferenceOp>, Graph<InferenceFact, Box<dyn InferenceOp>>>;
 #[derive(Debug, Display, Error)]
 enum MyError {
     #[display(fmt = "internal error")]
@@ -80,41 +72,16 @@ async fn parse_file(mut payload: Multipart) -> Result<HttpResponse, Error> {
 
     // parse section
     f.seek(SeekFrom::Start(0)).unwrap();
-    let model = read_model(&mut f).map_err(|x| {
-        println!("error: {:?}", x);
-        MyError::ParseError
-    })?;
-    let mm = model.model();
-    let input_shape: Vec<usize> = mm.node(0).outputs[0]
-        .fact
-        .shape
-        .dims()
-        .map(|s| format!("{}", s).as_str().parse().unwrap())
-        .collect();
-    let total_elements: usize = input_shape.iter().product();
 
-    let mut rng = thread_rng();
-    let vals: Vec<_> = (0..total_elements).map(|_| rng.gen::<f32>()).collect();
-    let input = tract_ndarray::arr1(&vals)
-        .into_shape(input_shape.as_slice())
-        .unwrap();
     let mut engine = LatexEngine::new();
 
-    let mut result = engine.parse_plan(&model, tvec![input.into()], ParseMode::Full);
+    let mut result = engine
+        .parse_from_file(&mut f)
+        .map_err(|e| MyError::ParseError)?;
     // result.erase_slash();
     Ok(HttpResponse::Ok().json(result))
 }
 
-fn read_model(file: &mut dyn Read) -> TractResult<InferencePlan> {
-    let model = tract_onnx::onnx()
-        .model_for_read(file)?
-        // specify input type and shap
-        // optimize the model
-        // make the model runnable and fix its inputs and outputs
-        .into_runnable()?;
-    // println!("{}",result.gen_json());
-    Ok(model)
-}
 #[derive(Deserialize)]
 struct BackwardParam {
     layer_node: usize,
@@ -124,12 +91,12 @@ struct BackwardParam {
 }
 
 #[derive(Serialize)]
-struct BackwardAnswer{
+struct BackwardAnswer {
     node: usize,
     layer_idx: usize,
-    weight_idx: usize, 
+    weight_idx: usize,
     symbol: String,
-    value: String, 
+    value: String,
 }
 
 #[post("/backward")]
@@ -141,20 +108,22 @@ async fn backward(
     let lr = req_body.into_inner();
     let last_point = lr.senario.last().cloned().unwrap();
 
-    let (s,v) = engine.gen_each_back(
-    &lr,
-        (info.layer_node, last_point),
-        (info.layer_idx, info.weight_idx),
-        info.depth,
-    ).map_err(|x| MyError::ParseError)?;
+    let (s, v) = engine
+        .gen_each_back(
+            &lr,
+            (info.layer_node, last_point),
+            (info.layer_idx, info.weight_idx),
+            info.depth,
+        )
+        .map_err(|x| MyError::ParseError)?;
     // let r = |s: &String| ->String{s.replace(r#"\\"#,r#"\"#)};
-    
-    let result= BackwardAnswer{
+
+    let result = BackwardAnswer {
         node: info.layer_node,
         layer_idx: info.layer_idx,
         weight_idx: info.weight_idx,
         symbol: s,
-        value: v
+        value: v,
     };
     Ok(HttpResponse::Ok().json(result))
 }

@@ -1,12 +1,5 @@
 [workspace]
 members = [
-    "data",
-    "linalg",
-    "core",
-    "hir",
-    "nnef",
-    "onnx-opl",
-    "onnx",
     "examples/latex_test",
     "latex_gen",
     "server"
