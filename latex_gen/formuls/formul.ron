@@ -8,6 +8,19 @@
             diff: Some("#"),
             symbol: None
         ),
+        "Conv":(
+            inputs: 3,
+            formul: "Cnn",
+            diff: Some("#"),
+            declaration: {"Cnn_{c,..}": "#_0_{c}+\\sum_{n=0}^{@_0}(#_1_{(c,n)}⋆#_2_{n})"},
+            symbol: Some("cnn")
+        ),
+        "_Block":(
+            inputs: 1,
+            formul: "\\begin{split}#_0\\end{split}",
+            diff: Some("#"),
+            symbol: None
+        ),
         "_Diff":(
             inputs: 2,
             formul: "\\frac{\\partial #_0}{\\partial #_1}",

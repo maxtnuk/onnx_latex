@@ -29,6 +29,8 @@ pub struct FormulNode {
     #[serde(default)]
     pub formul: String,
     #[serde(default)]
+    pub declaration: HashMap<String,String>,
+    #[serde(default)]
     pub diff: Option<String>,
     #[serde(default)]
     pub symbol: Option<String>,
@@ -39,6 +41,7 @@ impl Default for FormulNode {
             symbol: None,
             inputs: 0,
             formul: "".to_owned(),
+            declaration: HashMap::new(),
             diff: None,
         }
     }

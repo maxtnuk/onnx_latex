@@ -6,6 +6,6 @@
 		}
 	],
 	"settings": {
-		"python.pythonPath": "/Users/maxtnuk/opt/anaconda3/envs/myenv/bin/python"
+		"python.pythonPath": "/opt/homebrew/Caskroom/miniforge/base/envs/py39/bin/python"
 	}
 }

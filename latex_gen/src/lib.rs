@@ -2,8 +2,8 @@ use tract_onnx::tract_hir::internal::{OpState, SessionState};
 
 use nom::error::ErrorKind;
 use rand::prelude::*;
-use std::hash::Hash;
 use std::{borrow::Borrow, fmt::Debug};
+use std::{collections::HashMap, hash::Hash};
 use std::{fmt::Display, io::Read, path::Path};
 use tract_onnx::{prelude::*, tract_hir::infer::InferenceOp};
 
@@ -46,13 +46,15 @@ pub struct LatexNode {
     pub inputs: Vec<usize>,
     pub outputs: Vec<usize>,
     pub symbol: String,
-    pub value: String,
+    pub forward_value: String,
     pub op_name: String,
     pub shape: Vec<usize>,
     pub forward_prefix: String,
     pub backward_prefix: String,
     pub backward_value: String,
     pub backward_symbol: String,
+    pub descriptions_prefix: HashMap<String, String>,
+    pub description: String,
     pub op_attributes: DebugValue,
 }
 impl LatexNode {
@@ -60,7 +62,7 @@ impl LatexNode {
     pub fn erase_slash(&mut self) {
         let r = |s: &String| -> String { s.replace(r#"\\"#, r#"\"#) };
         self.symbol = r(&self.symbol);
-        self.value = r(&self.value);
+        self.forward_value = r(&self.forward_value);
         self.backward_symbol = r(&self.backward_symbol);
         self.backward_value = r(&self.backward_value);
     }
@@ -248,6 +250,8 @@ impl LatexEngine {
                 ),
                 ParseMode::Full => self.rec_node(node, model),
             };
+            // decription part
+
             // node formul
 
             let vs = eval(
@@ -261,19 +265,61 @@ impl LatexEngine {
 
             if let Some(form) = self.symbol_map[*n].as_mut() {
                 form.inputs = input_ids.clone();
-                form.value = forward_string;
+                form.forward_value = forward_string;
                 form.shape = vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
+                
             }
+            self.configure_decription(*n);
         }
+  
 
         // backward
         // self.gen_back_total(model, latex_result.senario.clone());
         let mut latex_result = LatexResult::new(model.nodes.len());
         latex_result.symbol_map = self.symbol_map.clone();
+        
         latex_result.senario = senario;
         self.flush();
         latex_result
     }
+    pub fn configure_decription(&mut self, node_idx: usize) {
+        let node = self.symbol_map[node_idx].as_ref().unwrap();
+        let op_name = node.op_name.as_str();
+        if node.descriptions_prefix.len() == 0 {
+            return;
+        }
+        let (_, _, form) = self.symbol_library.get_symbol("_Block").unwrap();
+        let b_splits = symbol_split(form.formul.as_str()).unwrap();
+        let mut inner_string = String::new();
+        let inputs = node.inputs.clone();
+        match op_name {
+            "Conv" => {
+                for (k, v) in node.descriptions_prefix.iter() {
+                    let left_v = k.clone();
+                    let des= match k.as_str() {
+                        "Cnn_{c,..}" => {
+                            let input_symbol: Vec<String> = inputs
+                                .iter()
+                                .filter_map(|x| self.symbol_map[*x].clone())
+                                .map(|s| s.symbol.clone())
+                                .collect();
+                            let many = node.shape[1];
+                            except_self_symbol_parts(symbol_split(v.as_str()).unwrap(), input_symbol, vec![many.to_string()])
+                        }
+                        _ => {"".to_string()}
+                    };
+                    inner_string+=&format!("{}={}////",left_v,des);
+                }
+            }
+            _ => {}
+        }
+        let result=only_inputs_symbol_parts(b_splits, vec![inner_string]);
+        if let Some(x) = self.symbol_map[node_idx].as_mut(){
+            x.description=result;
+        }
+        
+    }
+
     pub fn gen_back_total(
         &self,
         symbol_result: &mut LatexResult,
@@ -442,7 +488,11 @@ impl LatexEngine {
         let mut fkind = FormulKind::Not;
         let debug_op = format!("{:?}", node.op());
         self.symbol_map[index] = Some(LatexNode::default());
-        let (symbol, forward_prefix, backward_prefix) = if let Some((symbol, n_type, form)) =
+        let (symbol, forward_prefix, backward_prefix, descriptions) = if let Some((
+            symbol,
+            n_type,
+            form,
+        )) =
             self.symbol_library.get_symbol(op_name.borrow())
         {
             fkind = n_type.clone();
@@ -450,6 +500,7 @@ impl LatexEngine {
                 self.create_new_symbol(symbol.clone(), n_type, None),
                 form.formul,
                 form.diff.unwrap_or("".to_string()),
+                form.declaration,
             )
         } else {
             let temp = op_name.to_owned() + "." + n_name_split[1];
@@ -463,9 +514,10 @@ impl LatexEngine {
                     ),
                     form.formul,
                     form.diff.unwrap_or("".to_string()),
+                    form.declaration,
                 )
             } else {
-                ("".to_owned(), "".to_owned(), "".to_owned())
+                ("".to_owned(), "".to_owned(), "".to_owned(), HashMap::new())
             }
         };
         if let Some(nn) = self.symbol_map[index].as_mut() {
@@ -481,6 +533,7 @@ impl LatexEngine {
                     nn.outputs.push(i.node);
                 }
             }
+            nn.descriptions_prefix = descriptions;
         }
         Some(fkind)
     }
@@ -840,7 +893,7 @@ impl LatexResult {
     }
     pub fn get_node_formul(&self, i: usize) -> String {
         if let Some(ref x) = self.symbol_map[i] {
-            x.symbol.clone() + "=" + x.value.as_str()
+            x.symbol.clone() + "=" + x.forward_value.as_str()
         } else {
             "".to_owned()
         }
@@ -868,6 +921,42 @@ impl LatexResult {
 pub enum ParseMode {
     Brief,
     Full,
+}
+//  just model info
+pub fn model_info<P: AsRef<Path>>(path: P) -> TractResult<()> {
+    let model = tract_onnx::onnx()
+        // load the model
+        .model_for_path(path)?
+        // specify input type and shape
+        // optimize the model
+        // make the model runnable and fix its inputs and outputs
+        .into_runnable()?;
+    // let mm = model.model();
+    // println!("input shape{}",mm.node(0).)
+
+    for n in model.model().nodes() {
+        let op_name = n.op().name();
+        let node_name = n.name.clone();
+        println!("id: {}", n.id);
+        println!("op options {:?}", n.op());
+        println!("inputs: ");
+        for i in n.inputs.iter() {
+            print!(" {:?}", i);
+            let fact = model.model().outlet_fact(*i).unwrap();
+            println!("shape: {:?}", fact.shape.clone());
+            println!("value: {:?}", fact.value.clone());
+        }
+        for i in n.outputs.iter() {
+            println!("out test:{:?}", i.fact.shape);
+            for j in i.successors.iter() {
+                println!("output: {:?}", j);
+            }
+        }
+        println!("node name: {}", node_name);
+        println!("op name: {}", op_name);
+        println!();
+    }
+    Ok(())
 }
 
 #[test]
