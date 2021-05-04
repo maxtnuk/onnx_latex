@@ -14,12 +14,14 @@ pub extern crate tract_hir;
 pub mod model;
 pub mod ops;
 
+// pub mod pb;
 pub mod pb {
     include!(concat!(env!("OUT_DIR"), "/prost/onnx.rs"));
 }
 
 pub mod pb_helpers;
 pub mod tensor;
+
 
 pub use model::Onnx;
 

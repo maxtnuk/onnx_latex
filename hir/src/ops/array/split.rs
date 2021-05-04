@@ -9,6 +9,7 @@ pub struct Split {
 }
 
 impl_dyn_hash!(Split);
+empty_mathgen!(Split);
 
 impl Split {
     fn split_dims<D: DimLike>(&self, input: &D) -> TractResult<TVec<D>> {

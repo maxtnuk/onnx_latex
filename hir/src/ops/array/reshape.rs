@@ -5,6 +5,7 @@ use crate::internal::*;
 pub struct Reshape {}
 
 impl_dyn_hash!(Reshape);
+empty_mathgen!(Reshape);
 
 impl Expansion for Reshape {
     fn name(&self) -> Cow<str> {

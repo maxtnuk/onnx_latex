@@ -18,6 +18,7 @@ pub fn rem(
 pub struct RemInt;
 
 impl_dyn_hash!(RemInt);
+impl MathGen for RemInt{}
 
 impl Expansion for RemInt {
     fn name(&self) -> Cow<str> {

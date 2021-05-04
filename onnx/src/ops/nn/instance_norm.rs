@@ -18,6 +18,7 @@ pub struct InstanceNorm {
 }
 
 impl_dyn_hash!(InstanceNorm);
+impl MathGen for InstanceNorm{}
 
 impl Expansion for InstanceNorm {
     fn name(&self) -> Cow<str> {

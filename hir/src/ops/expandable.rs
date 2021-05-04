@@ -1,4 +1,4 @@
-use crate::internal::*;
+use crate::{internal::*, utils::MathGen};
 use tract_core::internal::*;
 
 pub fn expand<E: Expansion>(e: E) -> Box<dyn InferenceOp> {
@@ -12,6 +12,7 @@ pub trait Expansion:
     + Sync
     + tract_core::downcast_rs::Downcast
     + tract_core::internal::DynHash
+    + MathGen
 {
     fn name(&self) -> Cow<str>;
     fn op_families(&self) -> &'static [&'static str];
@@ -53,6 +54,7 @@ impl Hash for Box<dyn Expansion> {
 
 impl_dyn_hash!(Box<dyn Expansion>);
 
+
 impl Op for Box<dyn Expansion> {
     fn name(&self) -> Cow<str> {
         self.as_ref().name().into()
@@ -86,6 +88,24 @@ impl EvalOp for Box<dyn Expansion> {
         SimplePlan::new(adhoc)?.run(inputs.into_iter().map(|t| t.into_tensor()).collect())
     }
 }
+impl MathGen for Box<dyn Expansion>{
+    fn gen_forward(&self,idx: usize)->String{
+        self.as_ref().gen_forward(idx)
+    }
+
+    fn gen_forward_value(&self, idx:usize , inputs:Vec<String>) ->String{
+        self.as_ref().gen_forward_value(idx, inputs)
+    }
+
+    fn gen_backward(&self, idx: usize)->String{
+        self.as_ref().gen_backward(idx)
+    }
+
+    fn gen_backward_value(&self, idx:usize , inputs:Vec<String>) ->String{
+        self.as_ref().gen_backward_value(idx,inputs)
+    }
+}
+
 
 impl InferenceRulesOp for Box<dyn Expansion> {
     fn rules<'r, 'p: 'r, 's: 'r>(
@@ -157,6 +177,7 @@ pub struct InferenceWrapper {
     >,
     outputs: usize,
 }
+empty_mathgen!(InferenceWrapper);
 
 impl std::fmt::Debug for InferenceWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

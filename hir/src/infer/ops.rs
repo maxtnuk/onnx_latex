@@ -1,5 +1,5 @@
 use super::Factoid;
-use crate::infer::*;
+use crate::{infer::*, utils::MathGen};
 use std::fmt;
 use tract_core::downcast_rs::Downcast;
 
@@ -16,6 +16,7 @@ pub trait InferenceOp:
     + Downcast
     + EvalOp
     + DynHash
+    + MathGen
 {
     /// Infers properties about the input and output tensors.
     ///
@@ -119,6 +120,7 @@ pub trait InferenceOp:
     ) -> TractResult<TVec<OutletId>> {
         bail!("Operator can not be made a TypedOp.")
     }
+
 }
 
 impl Hash for Box<dyn InferenceOp> {

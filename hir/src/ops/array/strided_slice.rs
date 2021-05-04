@@ -11,6 +11,7 @@ pub struct StridedSlice {
 }
 
 impl_dyn_hash!(StridedSlice);
+empty_mathgen!(StridedSlice);
 
 #[derive(Debug, Clone, PartialEq)]
 struct Dim {

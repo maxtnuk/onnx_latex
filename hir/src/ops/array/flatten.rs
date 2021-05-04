@@ -6,6 +6,7 @@ pub struct Flatten {
     axis: usize,
 }
 impl_dyn_hash!(Flatten);
+empty_mathgen!(Flatten);
 
 impl Flatten {
     pub fn compute_shape<D: DimLike>(&self, shape: &[D]) -> TractResult<[D; 2]> {

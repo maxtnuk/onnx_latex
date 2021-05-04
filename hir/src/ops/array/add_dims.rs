@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use crate::infer::*;
 use crate::internal::*;
 use tract_itertools::Itertools;
@@ -8,6 +10,7 @@ pub struct AddDims {
 }
 
 impl_dyn_hash!(AddDims);
+empty_mathgen!(AddDims);
 
 impl AddDims {
     fn compute_shape<D: DimLike>(&self, input: &[D]) -> TVec<D> {

@@ -12,6 +12,7 @@ pub struct BatchNorm {
 }
 
 impl_dyn_hash!(BatchNorm);
+impl MathGen for BatchNorm{}
 
 impl BatchNorm {
     fn to_slope_and_inter<T>(

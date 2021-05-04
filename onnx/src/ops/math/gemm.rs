@@ -26,6 +26,7 @@ pub struct Gemm {
 }
 
 impl_dyn_hash!(Gemm);
+impl MathGen for Gemm{}
 
 impl Expansion for Gemm {
     fn name(&self) -> Cow<str> {

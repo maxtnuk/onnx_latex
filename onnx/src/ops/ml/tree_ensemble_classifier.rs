@@ -227,6 +227,7 @@ pub struct TreeEnsembleClassifier {
 }
 
 impl_dyn_hash!(TreeEnsembleClassifier);
+impl MathGen for TreeEnsembleClassifier{}
 
 impl Expansion for TreeEnsembleClassifier {
     fn name(&self) -> Cow<str> {

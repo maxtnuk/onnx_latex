@@ -19,6 +19,7 @@ struct MatMulInteger {
 }
 
 impl_dyn_hash!(MatMulInteger);
+impl MathGen for MatMulInteger{}
 
 impl Expansion for MatMulInteger {
     fn name(&self) -> Cow<str> {
@@ -102,6 +103,7 @@ pub fn q_linear_mat_mul(
 struct QLinearMatMul;
 
 impl_dyn_hash!(QLinearMatMul);
+impl MathGen for QLinearMatMul{}
 
 impl Expansion for QLinearMatMul {
     fn name(&self) -> Cow<str> {

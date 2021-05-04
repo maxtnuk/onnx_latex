@@ -81,6 +81,7 @@ struct Resize {
 }
 
 impl_dyn_hash!(Resize);
+impl MathGen for Resize{}
 
 impl Op for Resize {
     fn name(&self) -> Cow<str> {

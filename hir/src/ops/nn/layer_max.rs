@@ -9,6 +9,7 @@ pub struct LayerHardmax {
 }
 
 impl_dyn_hash!(LayerHardmax);
+empty_mathgen!(LayerHardmax);
 
 impl Expansion for LayerHardmax {
     fn name(&self) -> Cow<str> {
@@ -74,6 +75,7 @@ pub struct LayerLogSoftmax {
 }
 
 impl_dyn_hash!(LayerLogSoftmax);
+empty_mathgen!(LayerLogSoftmax);
 
 impl Expansion for LayerLogSoftmax {
     fn name(&self) -> Cow<str> {
@@ -108,6 +110,7 @@ pub struct LayerSoftmax {
 }
 
 impl_dyn_hash!(LayerSoftmax);
+empty_mathgen!(LayerSoftmax);
 
 impl Expansion for LayerSoftmax {
     fn name(&self) -> Cow<str> {

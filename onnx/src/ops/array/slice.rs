@@ -32,6 +32,9 @@ pub struct Slice1 {
 }
 
 impl_dyn_hash!(Slice1);
+impl MathGen for Slice1{
+    
+}
 
 impl Expansion for Slice1 {
     fn name(&self) -> Cow<str> {

@@ -40,6 +40,7 @@ pub struct LSTM {
 }
 
 impl_dyn_hash!(LSTM);
+impl MathGen for LSTM{}
 
 impl Default for LSTM {
     fn default() -> LSTM {

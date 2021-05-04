@@ -8,6 +8,7 @@ pub struct RmDims {
 }
 
 impl_dyn_hash!(RmDims);
+empty_mathgen!(RmDims);
 
 impl RmDims {
     fn compute_shape<D: DimLike>(&self, input: &[D]) -> TVec<D> {

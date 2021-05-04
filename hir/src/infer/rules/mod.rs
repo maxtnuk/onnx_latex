@@ -22,7 +22,7 @@ macro_rules! wrap {
     ($($x:expr,)*) => (wrap![$($x),*]);
 }
 
-use crate::infer::*;
+use crate::{infer::*, utils::MathGen};
 
 mod cache;
 pub mod expr;
@@ -72,7 +72,7 @@ pub trait InferenceRulesOp {
     }
 }
 
-impl<O: InferenceRulesOp + Op> InferenceOp for O {
+impl<O: InferenceRulesOp + Op+ MathGen> InferenceOp for O {
     fn infer_facts(
         &mut self,
         inputs: TVec<&InferenceFact>,

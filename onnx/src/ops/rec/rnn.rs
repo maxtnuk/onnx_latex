@@ -33,6 +33,7 @@ pub struct RNN {
 }
 
 impl_dyn_hash!(RNN);
+impl MathGen for RNN{}
 
 impl Default for RNN {
     fn default() -> RNN {

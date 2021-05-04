@@ -17,6 +17,7 @@ struct OneHot {
 }
 
 impl_dyn_hash!(OneHot);
+impl MathGen for OneHot{}
 
 impl Expansion for OneHot {
     fn name(&self) -> Cow<str> {

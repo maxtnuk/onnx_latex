@@ -40,6 +40,7 @@ pub struct QuantizeLinear {
 }
 
 impl_dyn_hash!(QuantizeLinear);
+impl MathGen for QuantizeLinear{}
 
 impl Expansion for QuantizeLinear {
     fn name(&self) -> Cow<str> {
@@ -107,6 +108,7 @@ pub struct DequantizeLinear {
 }
 
 impl_dyn_hash!(DequantizeLinear);
+impl MathGen for DequantizeLinear{}
 
 impl Expansion for DequantizeLinear {
     fn name(&self) -> Cow<str> {
@@ -171,6 +173,7 @@ impl Expansion for DequantizeLinear {
 pub struct DynamicQuantizeLinear {}
 
 impl_dyn_hash!(DynamicQuantizeLinear);
+impl MathGen for DynamicQuantizeLinear{}
 
 impl Expansion for DynamicQuantizeLinear {
     fn name(&self) -> Cow<str> {

@@ -15,6 +15,7 @@ struct CategoryMapper {
 }
 
 impl_dyn_hash!(CategoryMapper);
+impl MathGen for CategoryMapper{}
 
 impl Expansion for CategoryMapper {
     fn name(&self) -> Cow<str> {

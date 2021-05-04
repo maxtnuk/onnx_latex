@@ -5,6 +5,7 @@ use tract_ndarray::Dimension;
 pub struct NonZero;
 
 impl_dyn_hash!(NonZero);
+impl MathGen for NonZero{}
 
 impl NonZero {
     unsafe fn eval_t<T: Datum + tract_num_traits::Zero>(input: &Tensor) -> TractResult<Tensor> {

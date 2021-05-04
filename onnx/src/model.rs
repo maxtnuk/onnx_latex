@@ -4,8 +4,8 @@ use std::{fs, path};
 use std::collections::HashMap;
 
 use tract_hir::internal::*;
-
 use crate::pb;
+
 use prost::Message;
 
 pub fn optional_inputs(pb: &pb::NodeProto) -> impl Iterator<Item = Option<usize>> + '_ {

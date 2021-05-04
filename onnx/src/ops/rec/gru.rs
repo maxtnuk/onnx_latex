@@ -34,6 +34,7 @@ pub struct GRU {
 }
 
 impl_dyn_hash!(GRU);
+impl MathGen for GRU{}
 
 impl Default for GRU {
     fn default() -> GRU {

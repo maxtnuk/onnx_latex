@@ -10,6 +10,8 @@ pub mod macros;
 pub mod framework;
 
 pub mod infer;
+#[macro_use]
+pub mod utils;
 
 pub extern crate tract_core;
 
@@ -54,6 +56,7 @@ pub mod internal {
     pub use tract_core;
     pub use tract_core::internal::*;
     pub use {shapefactoid, to_typed};
+    pub use crate::utils::*;
 }
 
 #[cfg(test)]

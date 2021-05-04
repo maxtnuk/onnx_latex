@@ -6,6 +6,7 @@ pub struct Size {
     pub dt: DatumType,
 }
 impl_dyn_hash!(Size);
+empty_mathgen!(Size);
 
 impl Expansion for Size {
     fn name(&self) -> Cow<str> {

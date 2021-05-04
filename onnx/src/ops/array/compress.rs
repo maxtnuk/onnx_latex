@@ -15,6 +15,7 @@ pub struct Compress {
 }
 
 impl_dyn_hash!(Compress);
+impl MathGen for Compress{}
 
 impl Compress {
     unsafe fn eval_t<T: Datum>(&self, input: &Tensor, conds: &[bool], output: &mut Tensor) {

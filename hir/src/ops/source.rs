@@ -1,4 +1,4 @@
-use crate::infer::*;
+use crate::{infer::*, utils::MathGen};
 use crate::internal::*;
 
 use tract_core::ops::source::{SourceState, TypedSource};
@@ -29,6 +29,7 @@ impl EvalOp for Source {
         Ok(Some(Box::new(SourceState(node_id))))
     }
 }
+empty_mathgen!(Source);
 
 impl InferenceRulesOp for Source {
     /// Registers the inference rules of the operator.

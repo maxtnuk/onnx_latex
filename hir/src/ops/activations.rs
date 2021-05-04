@@ -1,4 +1,4 @@
-use crate::internal::*;
+use crate::{internal::*, utils::{self, MathGen}};
 use tract_core::ops::math::*;
 
 macro_rules! activation {
@@ -45,6 +45,11 @@ pub struct Clip(
     #[educe(Hash(method = "hash_opt_f32"))] Option<f32>,
     #[educe(Hash(method = "hash_opt_f32"))] Option<f32>,
 );
+impl MathGen for Clip {
+    fn gen_forward(&self, idx: usize)->String {
+        utils::gen_symbol(None, utils::FormulKind::Activation, idx)
+    }
+}
 
 activation!(Clip, |op, name: &str, model: &mut TypedModel, inputs| {
     let mut wire: TVec<OutletId> = inputs.into();
@@ -62,6 +67,9 @@ activation!(Clip, |op, name: &str, model: &mut TypedModel, inputs| {
 #[derive(Debug, Clone, new, Hash)]
 pub struct Softplus;
 
+// TODO mathgen
+impl MathGen for Softplus{}
+
 activation!(Softplus, |_op, name: &str, model: &mut TypedModel, inputs| {
     let one = broadcast_scalar(1.0, model, inputs)?;
     let wire = model.wire_node(name.to_string() + ".exp", exp(), inputs)?;
@@ -72,6 +80,8 @@ activation!(Softplus, |_op, name: &str, model: &mut TypedModel, inputs| {
 
 #[derive(Debug, Clone, new, Hash)]
 pub struct Softsign;
+
+impl MathGen for Softsign{}
 
 activation!(Softsign, |_op, name: &str, model: &mut TypedModel, inputs| {
     let one = broadcast_scalar(1.0, model, inputs)?;
@@ -85,6 +95,8 @@ activation!(Softsign, |_op, name: &str, model: &mut TypedModel, inputs| {
 #[derive(Debug, Clone, new, Educe)]
 #[educe(Hash)]
 pub struct Elu(#[educe(Hash(method = "hash_f32"))] pub f32);
+
+impl MathGen for Elu{}
 
 activation!(Elu, |op, name: &str, model: &mut TypedModel, inputs| {
     let zero = broadcast_scalar(0.0, model, inputs)?;
@@ -114,6 +126,8 @@ pub struct HardSigmoid(
     #[educe(Hash(method = "hash_f32"))] pub f32,
 );
 
+impl MathGen for HardSigmoid{}
+
 activation!(HardSigmoid, |op, name: &str, model: &mut TypedModel, inputs| {
     let alpha = broadcast_scalar(op.0, model, inputs)?;
     let beta = broadcast_scalar(op.1, model, inputs)?;
@@ -129,6 +143,8 @@ activation!(HardSigmoid, |op, name: &str, model: &mut TypedModel, inputs| {
 #[derive(Debug, Clone, new, Educe)]
 #[educe(Hash)]
 pub struct LeakyRelu(#[educe(Hash(method = "hash_f32"))] pub f32);
+
+impl MathGen for LeakyRelu{}
 
 activation!(LeakyRelu, |op, name: &str, model: &mut TypedModel, inputs| {
     let zero = broadcast_scalar(0.0, model, inputs)?;
@@ -154,6 +170,8 @@ pub struct ParametricSoftplus(
     #[educe(Hash(method = "hash_f32"))] pub f32,
 );
 
+impl MathGen for ParametricSoftplus{}
+
 activation!(ParametricSoftplus, |op, name: &str, model: &mut TypedModel, inputs| {
     let alpha = broadcast_scalar(op.0, model, inputs)?;
     let beta = broadcast_scalar(op.1, model, inputs)?;
@@ -173,6 +191,8 @@ pub struct ScaledTanh(
     #[educe(Hash(method = "hash_f32"))] pub f32,
 );
 
+impl MathGen for ScaledTanh{}
+
 activation!(ScaledTanh, |op, name: &str, model: &mut TypedModel, inputs| {
     let alpha = broadcast_scalar(op.0, model, inputs)?;
     let beta = broadcast_scalar(op.1, model, inputs)?;
@@ -188,6 +208,8 @@ pub struct Selu(
     #[educe(Hash(method = "hash_f32"))] pub f32,
     #[educe(Hash(method = "hash_f32"))] pub f32,
 );
+
+impl MathGen for Selu{}
 
 activation!(Selu, |op, name: &str, model: &mut TypedModel, inputs| {
     let zero = broadcast_scalar(0.0, model, inputs)?;
@@ -217,6 +239,8 @@ pub struct Shrink(
     #[educe(Hash(method = "hash_f32"))] pub f32,
     #[educe(Hash(method = "hash_f32"))] pub f32,
 );
+
+impl MathGen for Shrink{}
 
 activation!(Shrink, |op, name: &str, model: &mut TypedModel, inputs| {
     let bias = broadcast_scalar(op.0, model, inputs)?;
@@ -261,6 +285,8 @@ activation!(Shrink, |op, name: &str, model: &mut TypedModel, inputs| {
 #[derive(Debug, Clone, new, Educe)]
 #[educe(Hash)]
 pub struct ThresholdRelu(#[educe(Hash(method = "hash_f32"))] pub f32);
+
+impl MathGen for ThresholdRelu{}
 
 activation!(ThresholdRelu, |op, name: &str, model: &mut TypedModel, inputs| {
     let zero =
