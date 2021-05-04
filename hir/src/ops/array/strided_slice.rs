@@ -11,8 +11,7 @@ pub struct StridedSlice {
 }
 
 impl_dyn_hash!(StridedSlice);
-empty_mathgen!(StridedSlice);
-
+impl MathGen for StridedSlice{}
 #[derive(Debug, Clone, PartialEq)]
 struct Dim {
     // position of the first element to return

@@ -255,23 +255,7 @@ impl InferenceScan {
         Ok(changed)
     }
 }
-impl MathGen for InferenceScan{
-    fn gen_forward(&self, idx: usize)->String {
-        "".to_string()
-    }
-
-    fn gen_forward_value(&self, idx:usize , inputs:Vec<String>) ->String {
-        "".to_string()
-    }
-
-    fn gen_backward(&self, idx: usize)->String {
-        "".to_string()
-    }
-
-    fn gen_backward_value(&self, idx:usize , inputs:Vec<String>) ->String {
-        "".to_string()
-    }
-}
+impl MathGen for InferenceScan{}
 
 impl InferenceOp for InferenceScan {
     fn infer_facts(

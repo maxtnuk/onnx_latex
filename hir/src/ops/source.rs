@@ -29,7 +29,7 @@ impl EvalOp for Source {
         Ok(Some(Box::new(SourceState(node_id))))
     }
 }
-empty_mathgen!(Source);
+impl MathGen for Source{}
 
 impl InferenceRulesOp for Source {
     /// Registers the inference rules of the operator.

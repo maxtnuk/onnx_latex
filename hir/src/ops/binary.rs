@@ -8,7 +8,7 @@ use tract_core::ops::binary::BinMiniOp;
 #[derive(Debug, Clone, Hash)]
 pub struct InferenceBinOp(pub Box<dyn BinMiniOp>);
 impl_dyn_hash!(InferenceBinOp);
-empty_mathgen!(InferenceBinOp);
+impl MathGen for InferenceBinOp{}
 
 impl Expansion for InferenceBinOp {
     fn name(&self) -> Cow<str> {

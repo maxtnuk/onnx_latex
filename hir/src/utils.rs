@@ -5,6 +5,9 @@ use serde::Serialize;
 use crate::ops::{array::{ConstantLike, EyeLike}, binary::Nary, expandable::Expansion};
 
 pub trait MathGen {
+    fn get_symbol_type(&self, optional_sym: Option<String>) ->FormulKind {
+        FormulKind::Undefined
+    }
     fn gen_forward(&self,idx: usize)->String{
         "".to_string()
     }
@@ -25,6 +28,7 @@ pub enum FormulKind {
     Function,
     Base,
     Not,
+    Undefined
 }
 
 pub fn gen_symbol(symbol: Option<String>,n_type: FormulKind,idx: usize) ->String{
@@ -45,26 +49,7 @@ pub fn gen_symbol(symbol: Option<String>,n_type: FormulKind,idx: usize) ->String
     }
 }
 
-macro_rules! empty_mathgen {
-    ($struct:ident) => {
-        impl crate::utils::MathGen for $struct {
-            fn gen_forward(&self, idx: usize)->String{
-                "".to_string()
-            }
-            fn gen_forward_value(&self, idx:usize , inputs:Vec<String>) ->String{
-                "".to_string()
-            }
-            fn gen_backward(&self, idx: usize)->String{
-                "".to_string()
-            }
-            fn gen_backward_value(&self, idx:usize , inputs:Vec<String>) ->String{
-                "".to_string()
-            }
-        }
-    };
-}
-
-empty_mathgen!(Dummy);
+impl MathGen for Dummy{}
 impl MathGen for ElementWiseOp{}
 impl MathGen for Pad{}
 impl MathGen for Const{}

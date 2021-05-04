@@ -6,7 +6,7 @@ pub struct Shape {
     pub dt: DatumType,
 }
 impl_dyn_hash!(Shape);
-empty_mathgen!(Shape);
+impl MathGen for Shape{}
 impl Expansion for Shape {
     fn name(&self) -> Cow<str> {
         "Shape".into()

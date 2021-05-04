@@ -10,7 +10,7 @@ pub struct AddDims {
 }
 
 impl_dyn_hash!(AddDims);
-empty_mathgen!(AddDims);
+impl MathGen for AddDims{}
 
 impl AddDims {
     fn compute_shape<D: DimLike>(&self, input: &[D]) -> TVec<D> {

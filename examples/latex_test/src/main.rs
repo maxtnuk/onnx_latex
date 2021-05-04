@@ -99,3 +99,11 @@ fn test_three_layer() -> TractResult<()> {
 fn test_three_layer_file() -> TractResult<()> {
     Ok(())
 }
+
+#[test]
+fn test_serde() -> TractResult<()>{
+    let l = latex_gen::parse_proto("test_models/l3s.onnx").unwrap();
+    println!("{}",l);
+    Ok(())
+    // latex_gen::into_proto(l)
+}

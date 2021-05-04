@@ -177,7 +177,7 @@ pub struct InferenceWrapper {
     >,
     outputs: usize,
 }
-empty_mathgen!(InferenceWrapper);
+impl MathGen for InferenceWrapper{}
 
 impl std::fmt::Debug for InferenceWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

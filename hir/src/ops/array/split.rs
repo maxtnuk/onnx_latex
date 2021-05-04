@@ -9,8 +9,7 @@ pub struct Split {
 }
 
 impl_dyn_hash!(Split);
-empty_mathgen!(Split);
-
+impl MathGen for Split{}
 impl Split {
     fn split_dims<D: DimLike>(&self, input: &D) -> TractResult<TVec<D>> {
         if let Some(ref split) = self.split.as_ref() {

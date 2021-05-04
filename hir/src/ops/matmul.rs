@@ -2,7 +2,6 @@ use crate::{infer::*, utils::MathGen};
 use crate::internal::*;
 
 pub use tract_core::ops::matmul::MatMul;
-use tract_core::tract_linalg::frame::MatMatMulImpl;
 
 #[derive(Debug, Clone, Default, Hash)]
 pub struct MatMulInference {
@@ -26,9 +25,7 @@ impl MatMulInference {
         MatMulInference { c_trans, ..self }
     }
 }
-impl MathGen for MatMulInference{
-    
-}
+impl MathGen for MatMulInference{  }
 
 impl Expansion for MatMulInference {
     fn name(&self) -> Cow<str> {

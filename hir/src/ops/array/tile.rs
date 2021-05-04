@@ -4,7 +4,7 @@ use crate::internal::*;
 pub struct Tile;
 
 impl_dyn_hash!(Tile);
-empty_mathgen!(Tile);
+impl MathGen for Tile{}
 
 impl Expansion for Tile {
     fn name(&self) -> Cow<str> {

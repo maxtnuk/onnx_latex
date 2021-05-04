@@ -107,7 +107,7 @@ impl Conv {
         Ok(result)
     }
 }
-empty_mathgen!(Conv);
+impl MathGen for Conv{}
 
 impl Expansion for Conv {
     fn name(&self) -> Cow<str> {

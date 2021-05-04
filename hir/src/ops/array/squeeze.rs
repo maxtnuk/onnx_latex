@@ -9,7 +9,7 @@ pub struct Squeeze {
 }
 
 impl_dyn_hash!(Squeeze);
-empty_mathgen!(Squeeze);
+impl MathGen for Squeeze{}
 
 impl Squeeze {
     fn compute_shape<D: DimLike>(&self, input: &[D]) -> TractResult<TVec<D>> {

@@ -118,7 +118,7 @@ pub struct Reduce {
 }
 
 impl_dyn_hash!(Reduce);
-empty_mathgen!(Reduce);
+impl MathGen for Reduce{}
 
 impl Reduce {
     pub fn must_reduce(&self, ax: usize, rank: usize) -> bool {

@@ -1,4 +1,4 @@
-use tract_onnx::tract_hir::internal::{OpState, SessionState};
+use tract_onnx::{pb::ModelProto, tract_hir::{internal::{Expansion, OpState, SessionState}, ops::konst::Const, utils::FormulKind}};
 
 use nom::error::ErrorKind;
 use rand::prelude::*;
@@ -11,7 +11,7 @@ use crate::parse_struct::{except_self_symbol_parts, only_inputs_symbol_parts};
 pub use tract_onnx::prelude::TractResult;
 
 use self::{
-    node_info::{Formul, FormulKind, FormulNode},
+    node_info::{Formul, FormulNode},
     parse_struct::{insert_symbol_parts, op_parse, symbol_split, DebugValue},
 };
 
@@ -127,6 +127,19 @@ pub enum ErrorResultTo {
     Innner(usize),
 }
 
+pub fn parse_proto<P: AsRef<Path>>(path :P) -> TractResult<String>{
+    let proto_file= tract_onnx::onnx().proto_model_for_path(path)?;
+    let ss=serde_json::to_string(&proto_file).unwrap();
+    Ok(ss)
+}
+pub fn into_proto(input :String) -> TractResult<()>{
+    let ss=serde_json::from_str::<ModelProto>(input.as_str()).unwrap();
+    let l = tract_onnx::onnx().parse(&ss).unwrap();
+    let m = l.model.clone();
+    println!("{:?}",m);
+    Ok(())
+}
+
 impl LatexEngine {
     pub fn new() -> Self {
         let symbol_lib = SymbolLibrary::new();
@@ -156,6 +169,9 @@ impl LatexEngine {
         let plan = tract_onnx::onnx().model_for_read(file)?.into_runnable()?;
         self.start_parse(&plan)
     }
+
+   
+
     fn start_parse(&mut self, plan: &InferencePlan) -> TractResult<LatexResult> {
         let mm = plan.model();
         let input_shape: Vec<usize> = mm.node(0).outputs[0]
@@ -240,30 +256,30 @@ impl LatexEngine {
             }
 
             // println!("opname {}",op_name);
-            let forward_string = match mode {
-                ParseMode::Brief => self.parse_symbol(
-                    self.symbol_map[*n].as_ref().unwrap().forward_prefix.clone(),
-                    *n,
-                    input_ids.clone(),
-                ),
-                ParseMode::Full => self.rec_node(node, model),
-            };
+            // let forward_string = match mode {
+            //     ParseMode::Brief => self.parse_symbol(
+            //         self.symbol_map[*n].as_ref().unwrap().forward_prefix.clone(),
+            //         *n,
+            //         input_ids.clone(),
+            //     ),
+            //     ParseMode::Full => self.rec_node(node, model),
+            // };
             // node formul
 
-            let vs = eval(
-                session_state,
-                states[node.id].as_mut().map(|s| &mut **s),
-                node,
-                inputs,
-            )
-            .unwrap();
-            values[node.id] = Some(vs.clone());
+            // let vs = eval(
+            //     session_state,
+            //     states[node.id].as_mut().map(|s| &mut **s),
+            //     node,
+            //     inputs,
+            // )
+            // .unwrap();
+            // values[node.id] = Some(vs.clone());
 
-            if let Some(form) = self.symbol_map[*n].as_mut() {
-                form.inputs = input_ids.clone();
-                form.value = forward_string;
-                form.shape = vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
-            }
+            // if let Some(form) = self.symbol_map[*n].as_mut() {
+            //     form.inputs = input_ids.clone();
+            //     form.value = forward_string;
+            //     form.shape = vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
+            // }
         }
 
         // backward
@@ -372,27 +388,27 @@ impl LatexEngine {
         }
     }
 
-    fn rec_node(&self, node: &InferenceNode, model: &InferenceModel) -> String {
-        let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
+    // fn rec_node(&self, node: &InferenceNode, model: &InferenceModel) -> String {
+    //     let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
 
-        if input_ids.len() == 0 {
-            return self.symbol_map[node.id].as_ref().unwrap().symbol.clone();
-        }
+    //     if input_ids.len() == 0 {
+    //         return self.symbol_map[node.id].as_ref().unwrap().symbol.clone();
+    //     }
 
-        let ins = input_ids.iter().fold(Vec::new(), |mut acc, x| {
-            let i_node = model.node(*x);
-            acc.push(self.rec_node(i_node, model));
-            acc
-        });
-        let n = node.id;
-        let n_name = node.op().name();
+    //     let ins = input_ids.iter().fold(Vec::new(), |mut acc, x| {
+    //         let i_node = model.node(*x);
+    //         acc.push(self.rec_node(i_node, model));
+    //         acc
+    //     });
+    //     let n = node.id;
+    //     let n_name = node.op().name();
 
-        if let Some((_, _, f)) = self.symbol_library.get_symbol(n_name.borrow()) {
-            self.raw_parse_symbol(f.formul, n, ins)
-        } else {
-            "".to_string()
-        }
-    }
+    //     if let Some((_, _, f)) = self.symbol_library.get_symbol(n_name.borrow()) {
+    //         self.raw_parse_symbol(f.formul, n, ins)
+    //     } else {
+    //         "".to_string()
+    //     }
+    // }
     fn create_new_symbol(
         &mut self,
         symbol: String,
@@ -437,45 +453,43 @@ impl LatexEngine {
         }
         let n_name = node.name.clone();
         let n_name_split: Vec<&str> = n_name.split(".").collect();
-        let op_name = node.op().name();
+        let node_op = node.op_as::<Box<dyn Expansion>>().unwrap();
         // println!("node id: {}",node.id);
         let mut fkind = FormulKind::Not;
-        let debug_op = format!("{:?}", node.op());
-        self.symbol_map[index] = Some(LatexNode::default());
-        let (symbol, forward_prefix, backward_prefix) = if let Some((symbol, n_type, form)) =
-            self.symbol_library.get_symbol(op_name.borrow())
-        {
-            fkind = n_type.clone();
-            (
-                self.create_new_symbol(symbol.clone(), n_type, None),
-                form.formul,
-                form.diff.unwrap_or("".to_string()),
-            )
-        } else {
-            let temp = op_name.to_owned() + "." + n_name_split[1];
-            if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(temp.borrow()) {
-                fkind = n_type.clone();
-                (
-                    self.create_new_symbol(
-                        symbol.clone(),
-                        n_type,
-                        Some(n_name_split[1].to_string()),
-                    ),
-                    form.formul,
-                    form.diff.unwrap_or("".to_string()),
-                )
-            } else {
-                ("".to_owned(), "".to_owned(), "".to_owned())
-            }
-        };
+        
+        
+        // let debug_op = format!("{:?}", node.op());
+        // self.symbol_map[index] = Some(LatexNode::default());
+        // let (symbol, forward_prefix, backward_prefix) = if let Some((symbol, n_type, form)) =
+        //     self.symbol_library.get_symbol(op_name.borrow())
+        // {
+        //     fkind = n_type.clone();
+        //     (
+        //         self.create_new_symbol(symbol.clone(), n_type, None),
+        //         form.formul,
+        //         form.diff.unwrap_or("".to_string()),
+        //     )
+        // } else {
+        //     let temp = op_name.to_owned() + "." + n_name_split[1];
+        //     if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(temp.borrow()) {
+        //         fkind = n_type.clone();
+        //         (
+        //             self.create_new_symbol(
+        //                 symbol.clone(),
+        //                 n_type,
+        //                 Some(n_name_split[1].to_string()),
+        //             ),
+        //             form.formul,
+        //             form.diff.unwrap_or("".to_string()),
+        //         )
+        //     } else {
+        //         ("".to_owned(), "".to_owned(), "".to_owned())
+        //     }
+        // };
+        
         if let Some(nn) = self.symbol_map[index].as_mut() {
-            nn.op_attributes = op_parse::<(&str, ErrorKind)>(debug_op.as_str())
-                .unwrap_or(("", DebugValue::Undefined("".to_owned())))
-                .1;
-            nn.op_name = op_name.to_string();
-            nn.symbol = symbol;
-            nn.forward_prefix = forward_prefix;
-            nn.backward_prefix = backward_prefix;
+            nn.op_name = node_op.name().to_string();
+            nn.symbol = node_op.gen_forward(1);
             if node.outputs.len() != 0 && node.outputs[0].successors.len() != 0 {
                 for i in node.outputs[0].successors.iter() {
                     nn.outputs.push(i.node);
@@ -484,39 +498,40 @@ impl LatexEngine {
         }
         Some(fkind)
     }
+     
 
     //  # input,$ self, @: attribute
-    fn raw_parse_symbol(&self, original: String, origin: usize, inputs: Vec<String>) -> String {
-        let sym_node = self.symbol_map[origin].as_ref().unwrap();
+    // fn raw_parse_symbol(&self, original: String, origin: usize, inputs: Vec<String>) -> String {
+    //     let sym_node = self.symbol_map[origin].as_ref().unwrap();
 
-        let splits = symbol_split(original.as_str()).unwrap();
+    //     let splits = symbol_split(original.as_str()).unwrap();
 
-        let attributes: Vec<String> = match sym_node.op_attributes {
-            DebugValue::Tuple(ref v) => v.iter().map(|s| s.shallow_to_string()).collect(),
-            DebugValue::Object(ref v) => v.iter().map(|(_, a)| a.shallow_to_string()).collect(),
-            _ => Vec::new(),
-        };
-        let s_name = self.symbol_map[origin].as_ref().unwrap().symbol.clone();
+    //     let attributes: Vec<String> = match sym_node.op_attributes {
+    //         DebugValue::Tuple(ref v) => v.iter().map(|s| s.shallow_to_string()).collect(),
+    //         DebugValue::Object(ref v) => v.iter().map(|(_, a)| a.shallow_to_string()).collect(),
+    //         _ => Vec::new(),
+    //     };
+    //     let s_name = self.symbol_map[origin].as_ref().unwrap().symbol.clone();
 
-        let parsing_result = insert_symbol_parts(splits, inputs, attributes, s_name);
+    //     let parsing_result = insert_symbol_parts(splits, inputs, attributes, s_name);
 
-        parsing_result
-    }
+    //     parsing_result
+    // }
 
-    fn parse_symbol(&self, original: String, origin: usize, inputs: Vec<usize>) -> String {
-        let to_insert: Vec<String> = inputs
-            .iter()
-            .map(|x| {
-                if let Some(ref i) = self.symbol_map[*x] {
-                    i.symbol.as_str()
-                } else {
-                    ""
-                }
-            })
-            .map(|x| x.to_owned())
-            .collect();
-        self.raw_parse_symbol(original, origin, to_insert)
-    }
+    // fn parse_symbol(&self, original: String, origin: usize, inputs: Vec<usize>) -> String {
+    //     let to_insert: Vec<String> = inputs
+    //         .iter()
+    //         .map(|x| {
+    //             if let Some(ref i) = self.symbol_map[*x] {
+    //                 i.symbol.as_str()
+    //             } else {
+    //                 ""
+    //             }
+    //         })
+    //         .map(|x| x.to_owned())
+    //         .collect();
+    //     self.raw_parse_symbol(original, origin, to_insert)
+    // }
     pub fn expand_diff_symbol(
         &self,
         symbol_map: &Vec<Option<LatexNode>>,

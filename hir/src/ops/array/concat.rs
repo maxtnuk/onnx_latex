@@ -10,7 +10,7 @@ pub struct Concat {
 }
 
 impl_dyn_hash!(Concat);
-empty_mathgen!(Concat);
+impl MathGen for Concat{}
 
 impl Concat {
     fn resolve_axis(&self, rank: i64) -> TractResult<usize> {
