@@ -28,14 +28,15 @@ fn test_part<F: AsRef<Path>>(path: F) -> TractResult<()> {
     let mut engine = LatexEngine::new();
 
     let mut result = engine.parse_from_path(path)?;
-    // let parse_result = engine.gen_back_total(&mut result, (9, 4), Some(1));
-    // if parse_result.is_ok() {
-    //     for i in 0..result.symbol_map.len() {
-    //         println!("backward: {}", result.get_node_backward(i));
-    //     }
-    // } else {
-    //     println!("message: {:?}", parse_result.err());
-    // }
+    println!("{:?}",result.senario);
+    let parse_result = engine.gen_back_total(&mut result, (9, 4), Some(1));
+    if parse_result.is_ok() {
+        for i in 0..result.symbol_map.len() {
+            println!("backward: {}", result.get_node_backward(i));
+        }
+    } else {
+        println!("message: {:?}", parse_result.err());
+    }
     for n in result.symbol_map.iter() {
         println!("forward: {}", n.clone().unwrap().value);
     }

@@ -1,14 +1,6 @@
-use tract_onnx::{
-    pb::ModelProto,
-    tract_core::ops::nn::Sigmoid,
-    tract_hir::{
-        internal::{Expansion, OpState, SessionState},
-        ops::{
+use tract_onnx::{pb::ModelProto, tract_core::ops::nn::Sigmoid, tract_hir::{internal::{Expansion, OpState, SessionState}, ops::{
             array::Pad, dummy::Dummy, element_wise::ElementWiseOp, konst::Const, source::Source,
-        },
-        utils::{mathgen_ele_op, FormulKind, MathGen},
-    },
-};
+        }, utils::{FormulKind, MathGen, is_weightable, mathgen_ele_op}}};
 
 use nom::error::ErrorKind;
 use rand::prelude::*;
@@ -59,6 +51,7 @@ pub struct LatexNode {
     pub inputs: Vec<usize>,
     pub outputs: Vec<usize>,
     pub symbol: String,
+    pub extra_symbol: Option<String>,
     pub value: String,
     pub op_name: String,
     pub shape: Vec<usize>,
@@ -112,6 +105,51 @@ impl SymbolLibrary {
     pub fn get_symbol(&self, target: &str) -> Option<(String, FormulKind, FormulNode)> {
         let form = [&self.func, &self.etc, &self.activation];
         form.iter().filter_map(|x| x.gen_symbol(target).ok()).next()
+    }
+
+    fn gen_w_symbol_inner(&self, target: String, index: (usize, usize), deeper: bool) -> String {
+        let (_, _, underform) = self.get_symbol("_Under").unwrap();
+        let under_splits = symbol_split(underform.formul.as_str()).unwrap();
+        let (_, _, weightform) = self.get_symbol("_Weight").unwrap();
+        let weight_splits = symbol_split(weightform.formul.as_str()).unwrap();
+
+        let func_name = only_inputs_symbol_parts(
+            under_splits.clone(),
+            vec![target, format!("({})", index.0.to_string())],
+        );
+        let between_symbol =
+            only_inputs_symbol_parts(weight_splits.clone(), vec![func_name, index.1.to_string()]);
+        if deeper {
+            only_inputs_symbol_parts(under_splits.clone(), vec!["w".to_string(), between_symbol])
+        } else {
+            between_symbol
+        }
+    }
+    fn gen_error_symbol(&self, target: Vec<String>) -> String {
+        let (e_symbol, _, _) = self.get_symbol("Error").unwrap();
+        let splits = symbol_split(e_symbol.as_str()).unwrap();
+        insert_symbol_parts(splits, target, Vec::new(), "".to_string())
+    }
+    fn get_p0p1(
+        &self,
+        level: usize,
+        weight: (usize, usize),
+        last_symbol: String,
+    ) -> (String, String) {
+        if level == 0 {
+            let p0_temp = format!("({})", weight.0);
+            let p1_temp = self.gen_w_symbol_inner(last_symbol, weight, false);
+            (p0_temp, p1_temp)
+        } else {
+            (
+                format!("n_{}", level - 1),
+                if level > 1 {
+                    format!("n_{}", level - 2)
+                } else {
+                    format!("({})", weight.0)
+                },
+            )
+        }
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -292,9 +330,9 @@ impl LatexEngine {
 
         for (step, n) in plan.order.iter().enumerate() {
             let node = model.node(*n);
-            // println!("node {}", *n);
+            println!("node {}", *n);
             let node_kind = self.configure_node(node, *n);
-
+            // println!("node_kind {:?}",node_kind);
             let node_op = Self::boxed_mathgen(node);
 
             if let Some(fk) = node_kind {
@@ -402,18 +440,22 @@ impl LatexEngine {
     ) -> Result<(), std::io::Error> {
         let senario = symbol_result.senario.clone();
         let last_point = senario.last().unwrap();
+        let model = tract_onnx::onnx().model_for_proto_model(&symbol_result.original_data).unwrap();
 
         for i in senario.iter() {
-            let op_name = symbol_result.symbol_map[*i]
-                .as_ref()
-                .unwrap()
-                .op_name
-                .clone();
-            if op_name.to_string() != "Gemm" {
+            let node=model.node(*i);
+            let math_op = Self::boxed_mathgen(node);
+            let sym_node = symbol_result.symbol_map[*i].as_ref().unwrap();
+
+            let kind =math_op.get_symbol_type(sym_node.extra_symbol.clone());
+            println!("{:?}",kind);
+            if is_weightable(kind).is_none(){
+                println!("skip {}",*i);
                 continue;
             }
-            let (s, v) = self.gen_each_back(symbol_result, (*i, *last_point), which, depth)?;
+            let (s, v) = self.gen_each_back(&model,symbol_result, (*i, *last_point), which, depth)?;
             if let Some(f) = symbol_result.symbol_map[*i].as_mut() {
+                println!("called {},{}",v,s);
                 f.backward_value = v;
                 f.backward_symbol = s;
             }
@@ -423,6 +465,7 @@ impl LatexEngine {
     //  return(symbol,value)
     pub fn gen_each_back(
         &self,
+        model: &InferenceModel,
         symbol_result: &LatexResult,
         n_indxs: (usize, usize),
         which: (usize, usize),
@@ -439,7 +482,10 @@ impl LatexEngine {
                 std::io::ErrorKind::NotFound,
                 "not found index",
             ))?;
-
+        
+        let node=model.node(index);
+        let math_op = Self::boxed_mathgen(node);
+            
         let n_shape = shape
             .get(1)
             .unwrap_or(shape.get(0).ok_or(std::io::Error::new(
@@ -457,41 +503,24 @@ impl LatexEngine {
         // suppose total
         let expand_value =
             self.expand_diff_symbol(symbol_result.symbol_map.as_ref(), start_node, last_point);
-
+        println!("expand {:?}",expand_value);
         let e_option = depth
             .map(|x| ErrorResultTo::Innner(x))
             .unwrap_or(ErrorResultTo::Total);
 
-        let backward = self.gen_backward_value(&expand_value, e_option, which);
-        let e_symbol = self.gen_error_symbol(vec!["total".to_string(), "".to_string()]);
+        let backward = self.gen_backward_value(&expand_value, &model,e_option, which);
+        let e_symbol = self.symbol_library.gen_error_symbol(vec!["total".to_string(), "".to_string()]);
 
-        let down_symbol = self.gen_w_symbol_inner(symbol, which, true);
+        let down_symbol = self.symbol_library.gen_w_symbol_inner(symbol, which, true);
+
 
         Ok((
-            backward,
-            only_inputs_symbol_parts(d_splits.clone(), vec![e_symbol, down_symbol]),
+            math_op.gen_backward(e_symbol, down_symbol),
+            backward
         ))
     }
 
-    fn gen_w_symbol_inner(&self, target: String, index: (usize, usize), deeper: bool) -> String {
-        let (_, _, underform) = self.symbol_library.get_symbol("_Under").unwrap();
-        let under_splits = symbol_split(underform.formul.as_str()).unwrap();
-        let (_, _, weightform) = self.symbol_library.get_symbol("_Weight").unwrap();
-        let weight_splits = symbol_split(weightform.formul.as_str()).unwrap();
-
-        let func_name = only_inputs_symbol_parts(
-            under_splits.clone(),
-            vec![target, format!("({})", index.0.to_string())],
-        );
-        let between_symbol =
-            only_inputs_symbol_parts(weight_splits.clone(), vec![func_name, index.1.to_string()]);
-        if deeper {
-            only_inputs_symbol_parts(under_splits.clone(), vec!["w".to_string(), between_symbol])
-        } else {
-            between_symbol
-        }
-    }
-
+  
     fn rec_node(&self, node: &InferenceNode, model: &InferenceModel) -> String {
         let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
 
@@ -537,16 +566,17 @@ impl LatexEngine {
             return None;
         }
         self.symbol_map[index] = Some(LatexNode::default());
-        println!("node {}", index);
+        // println!("node {}", index);
         let n_name = node.name.clone();
 
         let node_op = Self::boxed_mathgen(node);
         let op_name = node.op().name().to_string();
+        println!("op_name {}",op_name);
         let n_name_split: Vec<&str> = n_name.split(".").collect();
         let inner = n_name_split.get(1).map(|s| s.to_string());
 
         let extra_symbol = match node_op.get_symbol_type(inner.clone()) {
-            FormulKind::Undefined => Some(op_name.clone()),
+            FormulKind::Undefined => None,
             _ => inner.clone(),
         };
         // println!("option {:?}",extra_symbol);
@@ -554,11 +584,12 @@ impl LatexEngine {
         let kind = node_op.get_symbol_type(extra_symbol.clone());
 
         let i = self.countup(&kind).unwrap_or(0);
-        let symbol = node_op.gen_forward(extra_symbol, i);
+        let symbol = node_op.gen_forward(extra_symbol.clone(), i);
         if let Some(nn) = self.symbol_map[index].as_mut() {
-            nn.op_name = n_name;
+            nn.op_name = op_name;
             nn.index = index;
             nn.symbol = symbol;
+            nn.extra_symbol= extra_symbol.clone();
             if node.outputs.len() != 0 && node.outputs[0].successors.len() != 0 {
                 for i in node.outputs[0].successors.iter() {
                     nn.outputs.push(i.node);
@@ -639,6 +670,7 @@ impl LatexEngine {
         &self,
         target: &DiffChainNode,
         back_package: &Vec<(&str, Vec<(&str, &str)>)>,
+        model: &InferenceModel,
         level: usize,
         final_model_end: ErrorResultTo,
         pre_chain: Option<String>,
@@ -648,12 +680,12 @@ impl LatexEngine {
             DiffChainNode::Sum(ref d, many) => match final_model_end {
                 ErrorResultTo::Innner(i) if i == level => {
                     let s = pre_chain.unwrap();
-                    let (p0_str, p1_str) = self.get_p0p1(level, weight, s.clone());
+                    let (p0_str, p1_str) = self.symbol_library.get_p0p1(level, weight, s.clone());
                     let last_node = only_inputs_symbol_parts(
                         back_package[4].clone(),
                         vec![s.clone(), p0_str.clone()],
                     );
-                    let e_sym = self.gen_error_symbol(vec!["total".to_string(), last_node]);
+                    let e_sym = self.symbol_library.gen_error_symbol(vec!["total".to_string(), last_node]);
                     let a_sym = only_inputs_symbol_parts(
                         back_package[4].clone(),
                         vec![s.clone(), p0_str.clone()],
@@ -664,6 +696,7 @@ impl LatexEngine {
                     let inner = self.rec_backward(
                         &d,
                         back_package,
+                        model,
                         level + 1,
                         final_model_end,
                         pre_chain,
@@ -693,12 +726,12 @@ impl LatexEngine {
 
                 match d[0].clone() {
                     DiffChainNode::Weightable(i, ref s) => {
-                        let (p0_str, p1_str) = self.get_p0p1(level, weight, s.clone());
+                        let (p0_str, p1_str) = self.symbol_library.get_p0p1(level, weight, s.clone());
                         let last_node = only_inputs_symbol_parts(
                             back_package[4].clone(),
                             vec![s.clone(), p0_str.clone()],
                         );
-                        let e_symbol = self.gen_error_symbol(vec!["total".to_string(), last_node]);
+                        let e_symbol = self.symbol_library.gen_error_symbol(vec!["total".to_string(), last_node]);
 
                         let a_sym = only_inputs_symbol_parts(
                             back_package[4].clone(),
@@ -721,13 +754,12 @@ impl LatexEngine {
                         only_inputs_symbol_parts(back_package[2].clone(), vec![e_a, a_p])
                     }
                     DiffChainNode::UnWeightable(i, ref s) => {
-                        let (p0_str, p1_str) =
-                            self.get_p0p1(level, weight, d1_symbol.clone().unwrap());
+                        let (p0_str, p1_str) =self.symbol_library.get_p0p1(level, weight, d1_symbol.clone().unwrap());
                         let last_node = only_inputs_symbol_parts(
                             back_package[4].clone(),
                             vec![s.clone(), p0_str.clone()],
                         );
-                        let e_symbol = self.gen_error_symbol(vec!["total".to_string(), last_node]);
+                        let e_symbol = self.symbol_library.gen_error_symbol(vec!["total".to_string(), last_node]);
 
                         let a_sym = only_inputs_symbol_parts(
                             back_package[4].clone(),
@@ -762,6 +794,7 @@ impl LatexEngine {
                         let first = self.rec_backward(
                             &x,
                             back_package,
+                            model,
                             level,
                             final_model_end,
                             d1_symbol.clone(),
@@ -769,7 +802,7 @@ impl LatexEngine {
                         );
 
                         if let Some(ref d2) = d2_symbol {
-                            let (p0_str, p1_str) = self.get_p0p1(level, weight, d2.clone());
+                            let (p0_str, p1_str) = self.symbol_library.get_p0p1(level, weight, d2.clone());
                             let p_sym = only_inputs_symbol_parts(
                                 back_package[4].clone(),
                                 vec![to_insert, p1_str.clone()],
@@ -795,7 +828,7 @@ impl LatexEngine {
                             only_inputs_symbol_parts(back_package[3].clone(), vec![first, a_b, b_f])
                         } else {
                             let (p0_str, p1_str) =
-                                self.get_p0p1(level, weight, d1_symbol.clone().unwrap());
+                                self.symbol_library.get_p0p1(level, weight, d1_symbol.clone().unwrap());
                             let p_sym = only_inputs_symbol_parts(
                                 back_package[4].clone(),
                                 vec![to_insert, p1_str.clone()],
@@ -817,27 +850,7 @@ impl LatexEngine {
         };
         result
     }
-    fn get_p0p1(
-        &self,
-        level: usize,
-        weight: (usize, usize),
-        last_symbol: String,
-    ) -> (String, String) {
-        if level == 0 {
-            let p0_temp = format!("({})", weight.0);
-            let p1_temp = self.gen_w_symbol_inner(last_symbol, weight, false);
-            (p0_temp, p1_temp)
-        } else {
-            (
-                format!("n_{}", level - 1),
-                if level > 1 {
-                    format!("n_{}", level - 2)
-                } else {
-                    format!("({})", weight.0)
-                },
-            )
-        }
-    }
+   
 
     fn get_symbol_if_func(target: &DiffChainNode) -> Option<String> {
         match target {
@@ -846,15 +859,11 @@ impl LatexEngine {
             _ => None,
         }
     }
-    fn gen_error_symbol(&self, target: Vec<String>) -> String {
-        let (e_symbol, _, _) = self.symbol_library.get_symbol("Error").unwrap();
-        let splits = symbol_split(e_symbol.as_str()).unwrap();
-        insert_symbol_parts(splits, target, Vec::new(), "".to_string())
-    }
 
     pub fn gen_backward_value(
         &self,
         target: &DiffChainNode,
+        model: &InferenceModel,
         final_model_end: ErrorResultTo,
         weight: (usize, usize),
     ) -> String {
@@ -870,7 +879,7 @@ impl LatexEngine {
         let under_splits = symbol_split(underform.formul.as_str()).unwrap();
 
         let vv = vec![d_splits, s_splits, c2_splits, c3_splits, under_splits];
-        self.rec_backward(target, &vv, 0, final_model_end, None, weight)
+        self.rec_backward(target, &vv, model,0, final_model_end, None, weight)
     }
 }
 
@@ -907,6 +916,9 @@ impl LatexResult {
     pub fn gen_json(&self) -> String {
         let j = serde_json::to_string_pretty(self).unwrap();
         j
+    }
+    pub fn gen_map_json(&self) ->String{
+        serde_json::to_string_pretty(&self.symbol_map).unwrap()
     }
     pub fn erase_slash(&mut self) {
         for n in self.symbol_map.iter_mut() {

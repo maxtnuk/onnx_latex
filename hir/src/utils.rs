@@ -28,7 +28,9 @@ use crate::ops::{
 
 pub trait MathGen {
     fn get_original_type(&self) -> FormulKind {
-        FormulKind::Undefined
+        let result = FormulKind::Undefined;
+        // println!("default called: {:?}",result);
+        result
     }
     fn get_symbol_type(&self, extra_symbol: Option<String>) -> FormulKind {
         match extra_symbol {
@@ -45,9 +47,8 @@ pub trait MathGen {
     fn gen_forward_value(&self, inputs: Vec<String>) -> String {
         "".to_string()
     }
-    fn gen_backward(&self, extra_symbol: Option<String>, idx: usize, under: String) -> String {
-        let upper = self.gen_forward(extra_symbol, idx);
-        format!(r#"\\frac{{\\partial {}}}{{\\partial {}}}"#, upper, under)
+    fn gen_backward(&self, upper: String, under: String) -> String {
+        format!(r#"\frac{{\partial {}}}{{\partial {}}}"#, upper, under)
     }
     fn gen_backward_value(&self, inputs: Vec<String>) -> Option<String> {
         None
@@ -57,7 +58,7 @@ pub trait MathGen {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq,Debug)]
 pub enum FormulKind {
     Activation,
     Function,
@@ -76,6 +77,16 @@ fn get_extra_symbol(original: String) -> FormulKind {
         "bias" => FormulKind::Bias,
         "Source" => FormulKind::Input,
         _ => FormulKind::Undefined,
+    }
+}
+pub fn is_weightable(form: FormulKind)-> Option<FormulKind>{
+    match form{
+        FormulKind::Function | FormulKind::Cnn =>{
+            Some(form)
+        }
+        _ => {
+            None
+        }
     }
 }
 

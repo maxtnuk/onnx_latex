@@ -88,6 +88,9 @@ impl EvalOp for Box<dyn Expansion> {
     }
 }
 impl MathGen for Box<dyn Expansion> {
+    fn get_original_type(&self) -> FormulKind {
+        self.as_ref().get_original_type()
+    }
     fn gen_forward(&self, extra_symbol: Option<String>, idx: usize) -> String {
         self.as_ref().gen_forward(extra_symbol, idx)
     }
@@ -96,8 +99,8 @@ impl MathGen for Box<dyn Expansion> {
         self.as_ref().gen_forward_value(inputs)
     }
 
-    fn gen_backward(&self, extra_symbol: Option<String>, idx: usize, under: String) -> String {
-        self.as_ref().gen_backward(extra_symbol, idx, under)
+    fn gen_backward(&self, upper: String, under: String) -> String {
+        self.as_ref().gen_backward(upper, under)
     }
 
     fn gen_backward_value(&self, inputs: Vec<String>) -> Option<String> {
