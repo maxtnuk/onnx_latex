@@ -26,7 +26,14 @@ pub struct Gemm {
 }
 
 impl_dyn_hash!(Gemm);
-impl MathGen for Gemm{}
+impl MathGen for Gemm {
+    fn get_original_type(&self) -> FormulKind {
+        FormulKind::Function
+    }
+    fn gen_forward_value(&self, inputs: Vec<String>) -> String {
+        format!(r#"{}\cdot {}+{}"#, inputs[0], inputs[1], inputs[2])
+    }
+}
 
 impl Expansion for Gemm {
     fn name(&self) -> Cow<str> {
@@ -66,7 +73,9 @@ impl Expansion for Gemm {
         let (a, b, mut c) = (inputs[0], inputs[1], inputs[2]);
         let mut wire = model.wire_node(
             format!("{}.ab", name),
-            ops::matmul::MatMul::default().with_a_trans(self.trans_a).with_b_trans(self.trans_b),
+            ops::matmul::MatMul::default()
+                .with_a_trans(self.trans_a)
+                .with_b_trans(self.trans_b),
             &[a, b].as_ref(),
         )?[0];
         if self.alpha != 1.0 {

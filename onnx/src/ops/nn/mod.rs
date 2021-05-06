@@ -23,7 +23,10 @@ pub fn arg_max_min(
     } else {
         nn::Reducer::ArgMin(take_last)
     };
-    Ok((expand(nn::Reduce::new(Some(vec![axis]), keepdims, red)), vec![]))
+    Ok((
+        expand(nn::Reduce::new(Some(vec![axis]), keepdims, red)),
+        vec![],
+    ))
 }
 
 fn reduce(
@@ -32,7 +35,10 @@ fn reduce(
 ) -> TractResult<(Box<dyn InferenceOp>, Vec<String>)> {
     let axes = node.get_attr_opt_vec("axes")?;
     let keep_dims = node.get_attr_opt("keepdims")?.unwrap_or(1i64) == 1;
-    Ok((expand(ops::nn::Reduce::new(axes, keep_dims, reducer)), vec![]))
+    Ok((
+        expand(ops::nn::Reduce::new(axes, keep_dims, reducer)),
+        vec![],
+    ))
 }
 
 pub fn register_all_ops(reg: &mut OnnxOpRegister) {
@@ -44,12 +50,19 @@ pub fn register_all_ops(reg: &mut OnnxOpRegister) {
     reg.insert("ConvInteger", conv_integer);
     reg.insert("Dropout", dropout::dropout);
     reg.insert("Elu", elu);
-    reg.insert("GlobalAveragePool", |_, _| Ok((expand(ops::nn::GlobalAvgPool), vec![])));
+    reg.insert("GlobalAveragePool", |_, _| {
+        Ok((expand(ops::nn::GlobalAvgPool), vec![]))
+    });
     reg.insert("GlobalLpPool", global_lp_pool);
-    reg.insert("GlobalMaxPool", |_, _| Ok((expand(ops::nn::GlobalMaxPool), vec![])));
+    reg.insert("GlobalMaxPool", |_, _| {
+        Ok((expand(ops::nn::GlobalMaxPool), vec![]))
+    });
     reg.insert("Hardmax", layer_hard_max);
     reg.insert("HardSigmoid", hard_sigmoid);
-    reg.insert("InstanceNormalization", instance_norm::instance_normalization);
+    reg.insert(
+        "InstanceNormalization",
+        instance_norm::instance_normalization,
+    );
     reg.insert("LeakyRelu", leaky_relu);
     reg.insert("LogSoftmax", layer_log_soft_max);
     reg.insert("LRN", lrn::lrn);
@@ -60,22 +73,32 @@ pub fn register_all_ops(reg: &mut OnnxOpRegister) {
     reg.insert("ReduceL1", |_, node| reduce(node, nn::Reducer::L1));
     reg.insert("ReduceL2", |_, node| reduce(node, nn::Reducer::L2));
     reg.insert("ReduceLogSum", |_, node| reduce(node, nn::Reducer::LogSum));
-    reg.insert("ReduceLogSumExp", |_, node| reduce(node, nn::Reducer::LogSumExp));
+    reg.insert("ReduceLogSumExp", |_, node| {
+        reduce(node, nn::Reducer::LogSumExp)
+    });
     reg.insert("ReduceMax", |_, node| reduce(node, nn::Reducer::Max));
     reg.insert("ReduceMean", |_, node| reduce(node, nn::Reducer::Mean));
     reg.insert("ReduceMin", |_, node| reduce(node, nn::Reducer::Min));
     reg.insert("ReduceProd", |_, node| reduce(node, nn::Reducer::Prod));
     reg.insert("ReduceSum", |_, node| reduce(node, nn::Reducer::Sum));
-    reg.insert("ReduceSumSquare", |_, node| reduce(node, nn::Reducer::SumSquare));
-    reg.insert("Relu", |_, _| Ok((expand(ops::activations::Clip::new(Some(0.0), None)), vec![])));
+    reg.insert("ReduceSumSquare", |_, node| {
+        reduce(node, nn::Reducer::SumSquare)
+    });
+    reg.insert("Relu", |_, _| {
+        Ok((expand(ops::activations::Clip::new(Some(0.0), None)), vec![]))
+    });
     reg.insert("ScaledTanh", scaled_tanh);
     reg.insert("Shrink", shrink);
     reg.insert("ThresholdedRelu", thresholded_relu);
     reg.insert("Selu", selu);
     reg.insert("Sigmoid", |_, _| Ok((Box::new(ops::nn::sigmoid()), vec![])));
     reg.insert("Softmax", layer_soft_max);
-    reg.insert("Softplus", |_, _| Ok((expand(ops::activations::Softplus), vec![])));
-    reg.insert("Softsign", |_, _| Ok((expand(ops::activations::Softsign), vec![])));
+    reg.insert("Softplus", |_, _| {
+        Ok((expand(ops::activations::Softplus), vec![]))
+    });
+    reg.insert("Softsign", |_, _| {
+        Ok((expand(ops::activations::Softsign), vec![]))
+    });
 }
 
 fn pad(node: &NodeProto) -> TractResult<cnn::PaddingSpec> {
@@ -128,7 +151,14 @@ pub fn batch_normalization(
     if spatial != 1 {
         bail!("BatchNormalization: attribute 'spatial' is not supported (deprecated by ONNX operator set 9)")
     }
-    Ok((expand(batch_norm::BatchNorm::new(nn::DataFormat::NCHW, epsilon, spatial != 0)), vec![]))
+    Ok((
+        expand(batch_norm::BatchNorm::new(
+            nn::DataFormat::NCHW,
+            epsilon,
+            spatial != 0,
+        )),
+        vec![],
+    ))
 }
 
 fn common_conv(node: &NodeProto) -> TractResult<cnn::Conv> {
@@ -278,7 +308,11 @@ pub fn max_pool(
     Ok((
         Box::new(cnn::MaxPool::new(
             cnn::PoolSpec::new(nn::DataFormat::NCHW, kernel_shape, pad, None, strides, None),
-            if node.output.len() == 2 { Some(DatumType::I64) } else { None },
+            if node.output.len() == 2 {
+                Some(DatumType::I64)
+            } else {
+                None
+            },
         )),
         vec![],
     ))
@@ -290,13 +324,16 @@ pub fn parametric_softplus(
 ) -> TractResult<(Box<dyn InferenceOp>, Vec<String>)> {
     let alpha = node.get_attr("alpha")?;
     let beta = node.get_attr("beta")?;
-    Ok((expand(ops::activations::ParametricSoftplus(alpha, beta)), vec![]))
+    Ok((
+        expand(ops::activations::ParametricSoftplus(alpha, beta)),
+        vec![],
+    ))
 }
 
 #[derive(Debug, Clone, Hash)]
 struct Prelu;
 impl_dyn_hash!(Prelu);
-impl MathGen for Prelu{}
+impl MathGen for Prelu {}
 
 impl Expansion for Prelu {
     fn name(&self) -> Cow<str> {
@@ -334,7 +371,9 @@ impl Expansion for Prelu {
                 &[b],
             )?[0];
         }
-        let mut zero = tensor0(0.0).cast_to_dt(model.outlet_fact(a)?.datum_type)?.into_owned();
+        let mut zero = tensor0(0.0)
+            .cast_to_dt(model.outlet_fact(a)?.datum_type)?
+            .into_owned();
         while zero.rank() < rank {
             zero.insert_axis(0)?;
         }
@@ -348,7 +387,11 @@ impl Expansion for Prelu {
             tract_hir::ops::logic::greater::unary(zero.into_arc_tensor()),
             &[a],
         )?;
-        model.wire_node(name.to_string() + ".iff", tract_hir::ops::logic::Iff, &[test[0], ab, a])
+        model.wire_node(
+            name.to_string() + ".iff",
+            tract_hir::ops::logic::Iff,
+            &[test[0], ab, a],
+        )
     }
 }
 

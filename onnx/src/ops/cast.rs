@@ -17,7 +17,7 @@ pub struct Cast {
 }
 
 impl_dyn_hash!(Cast);
-impl MathGen for Cast{}
+impl MathGen for Cast {}
 
 impl ElementWiseMiniOp for Cast {
     fn name(&self) -> String {

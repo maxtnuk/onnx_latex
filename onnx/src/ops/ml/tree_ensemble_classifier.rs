@@ -17,11 +17,19 @@ fn tree_classifier(
     let class_labels = parse_class_data(node)?;
     let base_class_score =
         get_vec_attr_opt::<f32>(node, "base_values", ensemble.n_classes())?.map(|t| rctensor1(&t));
-    let post_transform =
-        node.get_attr_opt("post_transform")?.map(parse_post_transform).transpose()?.unwrap_or(None);
+    let post_transform = node
+        .get_attr_opt("post_transform")?
+        .map(parse_post_transform)
+        .transpose()?
+        .unwrap_or(None);
 
     Ok((
-        expand(TreeEnsembleClassifier { ensemble, class_labels, base_class_score, post_transform }),
+        expand(TreeEnsembleClassifier {
+            ensemble,
+            class_labels,
+            base_class_score,
+            post_transform,
+        }),
         vec![],
     ))
 }
@@ -62,7 +70,9 @@ where
     T: AttrTVecType<'a>,
 {
     let vec = node.get_attr_vec(attr)?;
-    node.expect_attr(attr, vec.len() == n, || format!("length {}, got {}", vec.len(), n))?;
+    node.expect_attr(attr, vec.len() == n, || {
+        format!("length {}, got {}", vec.len(), n)
+    })?;
     Ok(vec)
 }
 
@@ -87,7 +97,9 @@ fn parse_class_data(node: &NodeProto) -> TractResult<Arc<Tensor>> {
     let strs = node.get_attr_opt_tvec::<&str>("classlabels_strings")?;
     match (ints, strs) {
         (Some(n), None) => Ok(rctensor1(n)),
-        (None, Some(n)) => Ok(rctensor1(&n.iter().map(|d| d.to_string()).collect::<Vec<_>>())),
+        (None, Some(n)) => Ok(rctensor1(
+            &n.iter().map(|d| d.to_string()).collect::<Vec<_>>(),
+        )),
         (None, None) => {
             bail!("cannot find neither 'classlabels_int64s' not 'classlabels_strings'")
         }
@@ -155,11 +167,31 @@ fn parse_nodes_data(node: &NodeProto, is_classifier: bool) -> TractResult<TreeEn
     let leaf_class_ids = get_vec_attr::<usize>(node, &cls("ids"), n_leaves)?;
     let leaf_weights = get_vec_attr::<f32>(node, &cls("weights"), n_leaves)?;
 
-    let inc_by_1 = |x: &[_]| x.iter().zip(x.iter().skip(1)).all(|(&x, &y)| y == x || y == x + 1);
-    node.expect_attr("nodes_treeids", inc_by_1(&tree_ids), "tree ids to increase by 1")?;
-    node.expect_attr(&cls("treeids"), inc_by_1(&leaf_tree_ids), "leaf tree ids to increase by 1")?;
-    node.expect_attr("nodes_treeids", tree_ids[0] == 0, "tree ids to start from 0")?;
-    node.expect_attr(&cls("treeids"), leaf_tree_ids[0] == 0, "leaf tree ids to start from 0")?;
+    let inc_by_1 = |x: &[_]| {
+        x.iter()
+            .zip(x.iter().skip(1))
+            .all(|(&x, &y)| y == x || y == x + 1)
+    };
+    node.expect_attr(
+        "nodes_treeids",
+        inc_by_1(&tree_ids),
+        "tree ids to increase by 1",
+    )?;
+    node.expect_attr(
+        &cls("treeids"),
+        inc_by_1(&leaf_tree_ids),
+        "leaf tree ids to increase by 1",
+    )?;
+    node.expect_attr(
+        "nodes_treeids",
+        tree_ids[0] == 0,
+        "tree ids to start from 0",
+    )?;
+    node.expect_attr(
+        &cls("treeids"),
+        leaf_tree_ids[0] == 0,
+        "leaf tree ids to start from 0",
+    )?;
     let n_trees = *tree_ids.last().unwrap() + 1;
     node.expect(
         leaf_tree_ids.last() == Some(&(n_trees - 1)),
@@ -212,9 +244,17 @@ fn parse_nodes_data(node: &NodeProto, is_classifier: bool) -> TractResult<TreeEn
         };
     }
     let trees = rctensor1(&*trees);
-    let nodes = tensor1(&*nodes).into_shape(&[nodes.len() / 5, 5])?.into_arc_tensor();
-    let leaves = tensor1(&*leaves).into_shape(&[leaves.len() / 2, 2])?.into_arc_tensor();
-    let data = TreeEnsembleData { trees, nodes, leaves };
+    let nodes = tensor1(&*nodes)
+        .into_shape(&[nodes.len() / 5, 5])?
+        .into_arc_tensor();
+    let leaves = tensor1(&*leaves)
+        .into_shape(&[leaves.len() / 2, 2])?
+        .into_arc_tensor();
+    let data = TreeEnsembleData {
+        trees,
+        nodes,
+        leaves,
+    };
     TreeEnsemble::build(data, max_used_features, n_classes, aggregate_fn)
 }
 
@@ -227,7 +267,7 @@ pub struct TreeEnsembleClassifier {
 }
 
 impl_dyn_hash!(TreeEnsembleClassifier);
-impl MathGen for TreeEnsembleClassifier{}
+impl MathGen for TreeEnsembleClassifier {}
 
 impl Expansion for TreeEnsembleClassifier {
     fn name(&self) -> Cow<str> {
@@ -276,7 +316,10 @@ impl Expansion for TreeEnsembleClassifier {
             scores = model.wire_node(
                 format!("{}.base_class_score", prefix),
                 tract_core::ops::math::add::unary(
-                    base_class_score.clone().broadcast_into_rank(2)?.into_arc_tensor(),
+                    base_class_score
+                        .clone()
+                        .broadcast_into_rank(2)?
+                        .into_arc_tensor(),
                 ),
                 &scores,
             )?;

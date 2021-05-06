@@ -3,8 +3,8 @@ use std::{fs, path};
 
 use std::collections::HashMap;
 
-use tract_hir::internal::*;
 use crate::pb;
+use tract_hir::internal::*;
 
 use prost::Message;
 
@@ -164,7 +164,11 @@ impl<'a> ParsingContext<'a> {
             model.set_outlet_fact(outlet, fact.try_into()?)?;
         }
         model.set_output_outlets(&outputs)?;
-        let result = ParseResult { model, unresolved_inputs, outlets_by_name };
+        let result = ParseResult {
+            model,
+            unresolved_inputs,
+            outlets_by_name,
+        };
         Ok(result)
     }
 }
@@ -242,9 +246,16 @@ impl Framework<pb::ModelProto, InferenceModel> for Onnx {
     }
 
     fn model_for_proto_model(&self, proto: &pb::ModelProto) -> TractResult<InferenceModel> {
-        let ParseResult { model, unresolved_inputs, .. } = self.parse(proto)?;
+        let ParseResult {
+            model,
+            unresolved_inputs,
+            ..
+        } = self.parse(proto)?;
         if unresolved_inputs.len() > 0 {
-            bail!("Could not resolve inputs at top-level: {:?}", unresolved_inputs)
+            bail!(
+                "Could not resolve inputs at top-level: {:?}",
+                unresolved_inputs
+            )
         }
         Ok(model)
     }

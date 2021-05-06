@@ -15,7 +15,7 @@ pub struct Dropout {
 }
 
 impl_dyn_hash!(Dropout);
-impl MathGen for Dropout{}
+impl MathGen for Dropout {}
 
 impl Op for Dropout {
     fn name(&self) -> Cow<str> {

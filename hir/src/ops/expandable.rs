@@ -54,7 +54,6 @@ impl Hash for Box<dyn Expansion> {
 
 impl_dyn_hash!(Box<dyn Expansion>);
 
-
 impl Op for Box<dyn Expansion> {
     fn name(&self) -> Cow<str> {
         self.as_ref().name().into()
@@ -88,24 +87,23 @@ impl EvalOp for Box<dyn Expansion> {
         SimplePlan::new(adhoc)?.run(inputs.into_iter().map(|t| t.into_tensor()).collect())
     }
 }
-impl MathGen for Box<dyn Expansion>{
-    fn gen_forward(&self,idx: usize)->String{
-        self.as_ref().gen_forward(idx)
+impl MathGen for Box<dyn Expansion> {
+    fn gen_forward(&self, extra_symbol: Option<String>, idx: usize) -> String {
+        self.as_ref().gen_forward(extra_symbol, idx)
     }
 
-    fn gen_forward_value(&self, idx:usize , inputs:Vec<String>) ->String{
-        self.as_ref().gen_forward_value(idx, inputs)
+    fn gen_forward_value(&self, inputs: Vec<String>) -> String {
+        self.as_ref().gen_forward_value(inputs)
     }
 
-    fn gen_backward(&self, idx: usize)->String{
-        self.as_ref().gen_backward(idx)
+    fn gen_backward(&self, extra_symbol: Option<String>, idx: usize, under: String) -> String {
+        self.as_ref().gen_backward(extra_symbol, idx, under)
     }
 
-    fn gen_backward_value(&self, idx:usize , inputs:Vec<String>) ->String{
-        self.as_ref().gen_backward_value(idx,inputs)
+    fn gen_backward_value(&self, inputs: Vec<String>) -> Option<String> {
+        self.as_ref().gen_backward_value(inputs)
     }
 }
-
 
 impl InferenceRulesOp for Box<dyn Expansion> {
     fn rules<'r, 'p: 'r, 's: 'r>(
@@ -129,7 +127,11 @@ impl InferenceRulesOp for Box<dyn Expansion> {
         for (ix, o) in outputs.iter().enumerate() {
             let expected = &node.outputs[ix].fact;
             let got = target.outlet_fact(*o)?;
-            if expected.clone().unify_with(&InferenceFact::from(got)).is_err() {
+            if expected
+                .clone()
+                .unify_with(&InferenceFact::from(got))
+                .is_err()
+            {
                 bail!("Output mismatch after rewiring expansion for output #{}: expected {:?} got {:?}", ix, expected, got);
             }
         }
@@ -156,7 +158,11 @@ where
         + Sync
         + 'static,
 {
-    expand(InferenceWrapper { typed_op: Box::new(op), rules: Arc::new(rules), outputs })
+    expand(InferenceWrapper {
+        typed_op: Box::new(op),
+        rules: Arc::new(rules),
+        outputs,
+    })
 }
 
 #[derive(Clone, new, Educe)]
@@ -177,7 +183,7 @@ pub struct InferenceWrapper {
     >,
     outputs: usize,
 }
-impl MathGen for InferenceWrapper{}
+impl MathGen for InferenceWrapper {}
 
 impl std::fmt::Debug for InferenceWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

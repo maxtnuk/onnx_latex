@@ -13,7 +13,7 @@ pub fn pow(
 pub struct Pow;
 
 impl_dyn_hash!(Pow);
-impl MathGen for Pow{}
+impl MathGen for Pow {}
 
 impl Expansion for Pow {
     fn name(&self) -> Cow<str> {

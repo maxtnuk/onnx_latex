@@ -33,7 +33,7 @@ pub struct RNN {
 }
 
 impl_dyn_hash!(RNN);
-impl MathGen for RNN{}
+impl MathGen for RNN {}
 
 impl Default for RNN {
     fn default() -> RNN {
@@ -199,7 +199,11 @@ impl RNN {
         // scann inner interface: [chunk=1, batch_size, input_size]
         // onnx inner interface: [batch_size, input_size]
         outer_inputs.push(inputs[0]);
-        input_mapping.push(scan::InputMapping::Scan { slot: 0, axis: 0, chunk });
+        input_mapping.push(scan::InputMapping::Scan {
+            slot: 0,
+            axis: 0,
+            chunk,
+        });
         let mut x_source_fact = x_fact.without_value();
         x_source_fact.shape.set(0, 1.to_dim());
         let x_source = body.add_source("x_source", x_source_fact)?.into();
@@ -225,7 +229,9 @@ impl RNN {
             target_wire!(b_dir = array::Slice::new(0, dir, dir + 1), inputs[slot]);
             outer_inputs.push(b_dir);
             input_mapping.push(scan::InputMapping::Full { slot });
-            let b = body.add_source("b", target.outlet_fact(b_dir)?.clone())?.into();
+            let b = body
+                .add_source("b", target.outlet_fact(b_dir)?.clone())?
+                .into();
             Some(b)
         } else {
             None
@@ -240,7 +246,10 @@ impl RNN {
         // scan inner: [chunk=1, batch_size, hidden_size]
         // onnx inner: [batch_size, hidden_size]
         let initializer = if let Some(initial_h_input) = self.optional_initial_h_input {
-            target_wire!(h_dir = array::Slice::new(0, dir, dir + 1), inputs[initial_h_input]);
+            target_wire!(
+                h_dir = array::Slice::new(0, dir, dir + 1),
+                inputs[initial_h_input]
+            );
             target_wire!(h = AxisOp::Rm(0), h_dir);
             target_wire!(h_chunk = AxisOp::Add(0), h);
             outer_inputs.push(h_chunk);
@@ -252,7 +261,10 @@ impl RNN {
         };
         input_mapping.push(scan::InputMapping::State { initializer });
         let h_source = body
-            .add_source("h_source", TypedFact::dt_shape(x_fact.datum_type, &[1, b_size, h_size]))?
+            .add_source(
+                "h_source",
+                TypedFact::dt_shape(x_fact.datum_type, &[1, b_size, h_size]),
+            )?
             .into();
 
         wire!(Ht_1 = AxisOp::Rm(0), h_source);
@@ -268,7 +280,11 @@ impl RNN {
 
         // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
         wire!(Xt_WiT = matmul::MatMul::default().with_b_trans(true), Xt, W);
-        wire!(Ht_1_RiT = matmul::MatMul::default().with_b_trans(true), Ht_1, R);
+        wire!(
+            Ht_1_RiT = matmul::MatMul::default().with_b_trans(true),
+            Ht_1,
+            R
+        );
 
         wire!(ht0 = math::add::bin_typed(), Xt_WiT, Ht_1_RiT);
         let mut ht0 = ht0;

@@ -116,7 +116,9 @@ impl<'a> AttrScalarType<'a> for Tensor {
 
 impl<'a> AttrScalarType<'a> for &'a [u8] {
     fn get_attr_opt_scalar(node: &'a NodeProto, name: &str) -> TractResult<Option<Self>> {
-        Ok(node.get_attr_opt_with_type(name, AttributeType::String)?.map(|attr| &*attr.s))
+        Ok(node
+            .get_attr_opt_with_type(name, AttributeType::String)?
+            .map(|attr| &*attr.s))
     }
 }
 
@@ -136,7 +138,8 @@ impl<'a> AttrScalarType<'a> for String {
 
 impl<'a> AttrScalarType<'a> for i64 {
     fn get_attr_opt_scalar(node: &'a NodeProto, name: &str) -> TractResult<Option<Self>> {
-        node.get_attr_opt_with_type(name, AttributeType::Int)?.and_ok(|a| a.i)
+        node.get_attr_opt_with_type(name, AttributeType::Int)?
+            .and_ok(|a| a.i)
     }
 }
 
@@ -162,7 +165,8 @@ impl<'a> AttrScalarType<'a> for usize {
 
 impl<'a> AttrScalarType<'a> for &'a GraphProto {
     fn get_attr_opt_scalar(node: &'a NodeProto, name: &str) -> TractResult<Option<Self>> {
-        node.get_attr_opt_with_type(name, AttributeType::Graph)?.and_ok(|a| a.g.as_ref().unwrap())
+        node.get_attr_opt_with_type(name, AttributeType::Graph)?
+            .and_ok(|a| a.g.as_ref().unwrap())
     }
 }
 
@@ -196,7 +200,9 @@ macro_rules! impl_attr_scalar_type_int {
                 name: &str,
             ) -> TractResult<Option<TVec<Self>>> {
                 AttrTVecType::get_attr_opt_tvec(node, name)?.and_try(|ints| {
-                    ints.into_iter().map(|int| check_int(node, name, int, true)).try_collect()
+                    ints.into_iter()
+                        .map(|int| check_int(node, name, int, true))
+                        .try_collect()
                 })
             }
         }
@@ -210,7 +216,8 @@ impl_attr_scalar_type_int!(isize);
 
 impl<'a> AttrScalarType<'a> for f32 {
     fn get_attr_opt_scalar(node: &'a NodeProto, name: &str) -> TractResult<Option<Self>> {
-        node.get_attr_opt_with_type(name, AttributeType::Float)?.and_ok(|x| x.f)
+        node.get_attr_opt_with_type(name, AttributeType::Float)?
+            .and_ok(|x| x.f)
     }
 }
 
@@ -220,19 +227,22 @@ pub trait AttrSliceType<'a>: 'a + Sized {
 
 impl<'a> AttrSliceType<'a> for Vec<u8> {
     fn get_attr_opt_slice(node: &'a NodeProto, name: &str) -> TractResult<Option<&'a [Self]>> {
-        node.get_attr_opt_with_type(name, AttributeType::Strings)?.and_ok(|x| &*x.strings)
+        node.get_attr_opt_with_type(name, AttributeType::Strings)?
+            .and_ok(|x| &*x.strings)
     }
 }
 
 impl<'a> AttrSliceType<'a> for i64 {
     fn get_attr_opt_slice(node: &'a NodeProto, name: &str) -> TractResult<Option<&'a [Self]>> {
-        node.get_attr_opt_with_type(name, AttributeType::Ints)?.and_ok(|a| &*a.ints)
+        node.get_attr_opt_with_type(name, AttributeType::Ints)?
+            .and_ok(|a| &*a.ints)
     }
 }
 
 impl<'a> AttrSliceType<'a> for f32 {
     fn get_attr_opt_slice(node: &'a NodeProto, name: &str) -> TractResult<Option<&'a [Self]>> {
-        node.get_attr_opt_with_type(name, AttributeType::Floats)?.and_ok(|a| &*a.floats)
+        node.get_attr_opt_with_type(name, AttributeType::Floats)?
+            .and_ok(|a| &*a.floats)
     }
 }
 
@@ -258,15 +268,22 @@ impl<'a> AttrTVecType<'a> for Tensor {
 
 impl<'a> AttrTVecType<'a> for &'a str {
     fn get_attr_opt_tvec(node: &'a NodeProto, name: &str) -> TractResult<Option<TVec<Self>>> {
-        <Vec<u8>>::get_attr_opt_slice(node, name)?
-            .and_try(|b| b.iter().map(|v| str::from_utf8(v)).try_collect().map_err(Into::into))
+        <Vec<u8>>::get_attr_opt_slice(node, name)?.and_try(|b| {
+            b.iter()
+                .map(|v| str::from_utf8(v))
+                .try_collect()
+                .map_err(Into::into)
+        })
     }
 }
 
 impl<'a> AttrTVecType<'a> for String {
     fn get_attr_opt_tvec(node: &'a NodeProto, name: &str) -> TractResult<Option<TVec<Self>>> {
         <Vec<u8>>::get_attr_opt_slice(node, name)?.and_try(|b| {
-            b.iter().map(|v| str::from_utf8(v).map(Into::into)).try_collect().map_err(Into::into)
+            b.iter()
+                .map(|v| str::from_utf8(v).map(Into::into))
+                .try_collect()
+                .map_err(Into::into)
         })
     }
 }
@@ -301,7 +318,13 @@ impl NodeProto {
     }
 
     pub fn bail_attr<T>(&self, attr: &str, msg: &str) -> TractResult<T> {
-        bail!("Node {} ({}), attribute '{}': {}", self.name, self.op_type, attr, msg)
+        bail!(
+            "Node {} ({}), attribute '{}': {}",
+            self.name,
+            self.op_type,
+            attr,
+            msg
+        )
     }
 
     pub fn expect<R: Reason>(&self, cond: bool, what: R) -> TractResult<()> {
@@ -336,9 +359,11 @@ impl NodeProto {
             Some(attr) => attr,
             _ => return Ok(None),
         };
-        self.expect_attr(name, AttributeType::from_i32(attr.r#type).unwrap() == ty, || {
-            format!("{}, got {}", ty, attr.r#type)
-        })?;
+        self.expect_attr(
+            name,
+            AttributeType::from_i32(attr.r#type).unwrap() == ty,
+            || format!("{}, got {}", ty, attr.r#type),
+        )?;
         Ok(Some(attr))
     }
 
@@ -374,7 +399,9 @@ impl NodeProto {
     where
         T: AttrSliceType<'a>,
     {
-        self.expect_ok_or_else(self.get_attr_opt_slice(name)?, || format!("attribute '{}'", name))
+        self.expect_ok_or_else(self.get_attr_opt_slice(name)?, || {
+            format!("attribute '{}'", name)
+        })
     }
 
     pub fn get_attr_opt_tvec<'a, T>(&'a self, name: &str) -> TractResult<Option<TVec<T>>>
@@ -388,7 +415,9 @@ impl NodeProto {
     where
         T: AttrTVecType<'a>,
     {
-        self.expect_ok_or_else(self.get_attr_opt_tvec(name)?, || format!("attribute '{}'", name))
+        self.expect_ok_or_else(self.get_attr_opt_tvec(name)?, || {
+            format!("attribute '{}'", name)
+        })
     }
 
     pub fn get_attr_opt_vec<'a, T>(&'a self, name: &str) -> TractResult<Option<Vec<T>>>

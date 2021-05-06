@@ -6,14 +6,17 @@ pub struct Flatten {
     axis: usize,
 }
 impl_dyn_hash!(Flatten);
-impl MathGen for Flatten{}
+impl MathGen for Flatten {}
 
 impl Flatten {
     pub fn compute_shape<D: DimLike>(&self, shape: &[D]) -> TractResult<[D; 2]> {
         if shape.iter().filter(|d| d.to_usize().is_err()).count() > 1 {
             bail!("Can not compute a shape with square of symbols")
         }
-        Ok([shape[..self.axis].iter().maybe_product()?, shape[self.axis..].iter().maybe_product()?])
+        Ok([
+            shape[..self.axis].iter().maybe_product()?,
+            shape[self.axis..].iter().maybe_product()?,
+        ])
     }
 }
 
@@ -33,7 +36,10 @@ impl Expansion for Flatten {
         s.equals(&outputs[0].datum_type, &inputs[0].datum_type)?;
         s.given(&inputs[0].shape, move |s, shape| {
             let [shape_0, shape_1] = self.compute_shape(&*shape)?;
-            s.equals(&outputs[0].shape, ShapeFactoid::from(vec![shape_0, shape_1]))
+            s.equals(
+                &outputs[0].shape,
+                ShapeFactoid::from(vec![shape_0, shape_1]),
+            )
         })
     }
 
@@ -46,8 +52,9 @@ impl Expansion for Flatten {
         let input_shape = model.outlet_fact(inputs[0])?.shape.to_tvec();
         let output_shape = self.compute_shape(&input_shape)?;
         let mut wire = tvec!(inputs[0]);
-        for (ix, op) in
-            super::reshape::to_axis_ops(&input_shape, &output_shape)?.into_iter().enumerate()
+        for (ix, op) in super::reshape::to_axis_ops(&input_shape, &output_shape)?
+            .into_iter()
+            .enumerate()
         {
             wire = model.wire_node(format!("{}.{}", prefix, ix), op, &wire)?;
         }

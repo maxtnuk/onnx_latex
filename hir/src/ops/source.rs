@@ -1,5 +1,5 @@
-use crate::{infer::*, utils::MathGen};
 use crate::internal::*;
+use crate::{infer::*, utils::MathGen};
 
 use tract_core::ops::source::{SourceState, TypedSource};
 
@@ -7,6 +7,11 @@ use tract_core::ops::source::{SourceState, TypedSource};
 pub struct Source;
 
 impl_dyn_hash!(Source);
+impl MathGen for Source {
+    fn get_original_type(&self) -> FormulKind {
+        FormulKind::Input
+    }
+}
 
 impl Op for Source {
     fn name(&self) -> Cow<str> {
@@ -29,7 +34,6 @@ impl EvalOp for Source {
         Ok(Some(Box::new(SourceState(node_id))))
     }
 }
-impl MathGen for Source{}
 
 impl InferenceRulesOp for Source {
     /// Registers the inference rules of the operator.

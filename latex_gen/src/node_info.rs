@@ -45,7 +45,6 @@ impl Default for FormulNode {
     }
 }
 
-
 impl Formul {
     pub fn gen_symbol(&self, target: &str) -> Result<(String, FormulKind, FormulNode)> {
         if let Some(x) = self.entries.get(target) {
@@ -66,6 +65,6 @@ pub fn read_ron<P: AsRef<Path>>(path: P) -> Result<Formul> {
         from_reader(f).map_err(|e| Error::new(ErrorKind::InvalidInput, format!("{:?}", e)))?;
     Ok(result)
 }
-pub fn read_str(input: &str) -> Result<Formul>{
+pub fn read_str(input: &str) -> Result<Formul> {
     from_str::<Formul>(input).map_err(|e| Error::new(ErrorKind::InvalidInput, format!("{:?}", e)))
 }

@@ -40,7 +40,7 @@ pub struct LSTM {
 }
 
 impl_dyn_hash!(LSTM);
-impl MathGen for LSTM{}
+impl MathGen for LSTM {}
 
 impl Default for LSTM {
     fn default() -> LSTM {
@@ -242,7 +242,11 @@ impl LSTM {
         // scann inner interface: [chunk=1, batch_size, input_size]
         // onnx inner interface: [batch_size, input_size]
         outer_inputs.push(inputs[0]);
-        input_mapping.push(scan::InputMapping::Scan { slot: 0, axis: 0, chunk });
+        input_mapping.push(scan::InputMapping::Scan {
+            slot: 0,
+            axis: 0,
+            chunk,
+        });
         let mut x_source_fact = x_fact.without_value();
         x_source_fact.shape.set(0, 1.to_dim());
         let x_source = body.add_source("x_source", x_source_fact)?.into();
@@ -284,7 +288,10 @@ impl LSTM {
         // scan inner: [chunk=1, batch_size, hidden_size]
         // onnx inner: [batch_size, hidden_size]
         let initializer = if let Some(initial_h_input) = self.optional_initial_h_input {
-            target_wire!(h_dir = array::Slice::new(0, dir, dir + 1), inputs[initial_h_input]);
+            target_wire!(
+                h_dir = array::Slice::new(0, dir, dir + 1),
+                inputs[initial_h_input]
+            );
             target_wire!(h = AxisOp::Rm(0), h_dir);
             target_wire!(h_chunk = AxisOp::Add(0), h);
             outer_inputs.push(h_chunk);
@@ -296,11 +303,17 @@ impl LSTM {
         };
         input_mapping.push(scan::InputMapping::State { initializer });
         let h_source = body
-            .add_source("h_source", TypedFact::dt_shape(x_fact.datum_type, &[1, b_size, h_size]))?
+            .add_source(
+                "h_source",
+                TypedFact::dt_shape(x_fact.datum_type, &[1, b_size, h_size]),
+            )?
             .into();
 
         let initializer = if let Some(initial_c_input) = self.optional_initial_c_input {
-            target_wire!(c_dir = array::Slice::new(0, dir, dir + 1), inputs[initial_c_input]);
+            target_wire!(
+                c_dir = array::Slice::new(0, dir, dir + 1),
+                inputs[initial_c_input]
+            );
             target_wire!(c = AxisOp::Rm(0), c_dir);
             target_wire!(c_chunk = AxisOp::Add(0), c);
             outer_inputs.push(c_chunk);
@@ -312,7 +325,10 @@ impl LSTM {
         };
         input_mapping.push(scan::InputMapping::State { initializer });
         let c_source = body
-            .add_source("c_source", TypedFact::dt_shape(x_fact.datum_type, &[1, b_size, h_size]))?
+            .add_source(
+                "c_source",
+                TypedFact::dt_shape(x_fact.datum_type, &[1, b_size, h_size]),
+            )?
             .into();
 
         // P: onnx [num_directions, 3*hidde_size]
@@ -370,8 +386,16 @@ impl LSTM {
         };
 
         // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
-        wire!(Xt_WiT = matmul::MatMul::default().with_b_trans(true), Xt, Wi);
-        wire!(Ht_1_RiT = matmul::MatMul::default().with_b_trans(true), Ht_1, Ri);
+        wire!(
+            Xt_WiT = matmul::MatMul::default().with_b_trans(true),
+            Xt,
+            Wi
+        );
+        wire!(
+            Ht_1_RiT = matmul::MatMul::default().with_b_trans(true),
+            Ht_1,
+            Ri
+        );
         wire!(it0 = math::add::bin_typed(), Xt_WiT, Ht_1_RiT);
         let mut it0 = it0;
         if let Some(biases) = biases {
@@ -386,8 +410,16 @@ impl LSTM {
         wire!(it = self.f.clone(), it0);
 
         // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
-        wire!(Xt_WfT = matmul::MatMul::default().with_b_trans(true), Xt, Wf);
-        wire!(Ht_1_RfT = matmul::MatMul::default().with_b_trans(true), Ht_1, Rf);
+        wire!(
+            Xt_WfT = matmul::MatMul::default().with_b_trans(true),
+            Xt,
+            Wf
+        );
+        wire!(
+            Ht_1_RfT = matmul::MatMul::default().with_b_trans(true),
+            Ht_1,
+            Rf
+        );
         wire!(ft0 = math::add::bin_typed(), Xt_WfT, Ht_1_RfT);
         let mut ft0 = ft0;
         if let Some(biases) = biases {
@@ -402,8 +434,16 @@ impl LSTM {
         wire!(ft = self.f.clone(), ft0);
 
         // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
-        wire!(Xt_WcT = matmul::MatMul::default().with_b_trans(true), Xt, Wc);
-        wire!(Ht_1_RcT = matmul::MatMul::default().with_b_trans(true), Ht_1, Rc);
+        wire!(
+            Xt_WcT = matmul::MatMul::default().with_b_trans(true),
+            Xt,
+            Wc
+        );
+        wire!(
+            Ht_1_RcT = matmul::MatMul::default().with_b_trans(true),
+            Ht_1,
+            Rc
+        );
         wire!(ct0 = math::add::bin_typed(), Xt_WcT, Ht_1_RcT);
         let mut ct0 = ct0;
         if let Some(biases) = biases {
@@ -418,8 +458,16 @@ impl LSTM {
         wire!(Ct = math::add::bin_typed(), ft_Ct_1, it_ct);
 
         // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
-        wire!(Xt_WoT = matmul::MatMul::default().with_b_trans(true), Xt, Wo);
-        wire!(Ht_1_RoT = matmul::MatMul::default().with_b_trans(true), Ht_1, Ro);
+        wire!(
+            Xt_WoT = matmul::MatMul::default().with_b_trans(true),
+            Xt,
+            Wo
+        );
+        wire!(
+            Ht_1_RoT = matmul::MatMul::default().with_b_trans(true),
+            Ht_1,
+            Ro
+        );
         wire!(ot0 = math::add::bin_typed(), Xt_WoT, Ht_1_RoT);
         let mut ot0 = ot0;
         if let Some(biases) = biases {

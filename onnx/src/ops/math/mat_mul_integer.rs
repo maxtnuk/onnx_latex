@@ -19,7 +19,7 @@ struct MatMulInteger {
 }
 
 impl_dyn_hash!(MatMulInteger);
-impl MathGen for MatMulInteger{}
+impl MathGen for MatMulInteger {}
 
 impl Expansion for MatMulInteger {
     fn name(&self) -> Cow<str> {
@@ -47,11 +47,15 @@ impl Expansion for MatMulInteger {
         if let Some(b_zp) = self.optional_b_zero_point_input {
             s.equals(&inputs[b_zp].datum_type, &inputs[1].datum_type)?
         }
-        s.given_2(&inputs[0].shape, &inputs[1].shape, move |s, ashape, bshape| {
-            let (_, _, cshape, _) =
-                tract_hir::ops::matmul::compute_shapes(ashape, bshape, false, false, false)?;
-            s.equals(&outputs[0].shape, cshape)
-        })?;
+        s.given_2(
+            &inputs[0].shape,
+            &inputs[1].shape,
+            move |s, ashape, bshape| {
+                let (_, _, cshape, _) =
+                    tract_hir::ops::matmul::compute_shapes(ashape, bshape, false, false, false)?;
+                s.equals(&outputs[0].shape, cshape)
+            },
+        )?;
         Ok(())
     }
 
@@ -87,7 +91,10 @@ impl Expansion for MatMulInteger {
         let mut inputs: TVec<OutletId> = inputs.into();
         inputs[0] = a_and_b[0];
         inputs[1] = a_and_b[1];
-        inputs.insert(2, target.add_const(format!("{}.bias", prefix), tensor0(0i32))?);
+        inputs.insert(
+            2,
+            target.add_const(format!("{}.bias", prefix), tensor0(0i32))?,
+        );
         target.wire_node(prefix, op, &inputs)
     }
 }
@@ -103,7 +110,7 @@ pub fn q_linear_mat_mul(
 struct QLinearMatMul;
 
 impl_dyn_hash!(QLinearMatMul);
-impl MathGen for QLinearMatMul{}
+impl MathGen for QLinearMatMul {}
 
 impl Expansion for QLinearMatMul {
     fn name(&self) -> Cow<str> {
@@ -129,11 +136,15 @@ impl Expansion for QLinearMatMul {
         s.equals(&inputs[1].rank, &inputs[2].rank)?;
         s.equals(&inputs[4].rank, &inputs[5].rank)?;
         s.equals(&inputs[6].rank, &inputs[7].rank)?;
-        s.given_2(&inputs[0].shape, &inputs[3].shape, move |s, ashape, bshape| {
-            let (_, _, _, cshape) =
-                tract_hir::ops::matmul::compute_shapes(ashape, bshape, false, false, false)?;
-            s.equals(&outputs[0].shape, cshape)
-        })?;
+        s.given_2(
+            &inputs[0].shape,
+            &inputs[3].shape,
+            move |s, ashape, bshape| {
+                let (_, _, _, cshape) =
+                    tract_hir::ops::matmul::compute_shapes(ashape, bshape, false, false, false)?;
+                s.equals(&outputs[0].shape, cshape)
+            },
+        )?;
         Ok(())
     }
 

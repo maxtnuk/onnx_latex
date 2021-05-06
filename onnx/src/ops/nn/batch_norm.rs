@@ -12,7 +12,7 @@ pub struct BatchNorm {
 }
 
 impl_dyn_hash!(BatchNorm);
-impl MathGen for BatchNorm{}
+impl MathGen for BatchNorm {}
 
 impl BatchNorm {
     fn to_slope_and_inter<T>(
@@ -91,9 +91,12 @@ impl Expansion for BatchNorm {
             .map(|i| Ok(target.outlet_fact(inputs[i])?.konst.clone()))
             .collect::<TractResult<TVec<Option<Arc<Tensor>>>>>()?;
 
-        if let (Some(scale), Some(beta), Some(mean), Some(var)) =
-            (params[0].as_ref(), params[1].as_ref(), params[2].as_ref(), params[3].as_ref())
-        {
+        if let (Some(scale), Some(beta), Some(mean), Some(var)) = (
+            params[0].as_ref(),
+            params[1].as_ref(),
+            params[2].as_ref(),
+            params[3].as_ref(),
+        ) {
             let x_shape = x.shape.to_tvec();
             let c_axis = self.data_format.shape(&x_shape)?.c_axis();
             let c_dim = self.data_format.shape(&x_shape)?.c_dim().to_usize()?;

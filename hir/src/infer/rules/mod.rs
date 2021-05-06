@@ -72,17 +72,23 @@ pub trait InferenceRulesOp {
     }
 }
 
-impl<O: InferenceRulesOp + Op+ MathGen> InferenceOp for O {
+impl<O: InferenceRulesOp + Op + MathGen> InferenceOp for O {
     fn infer_facts(
         &mut self,
         inputs: TVec<&InferenceFact>,
         outputs: TVec<&InferenceFact>,
         observed: TVec<&InferenceFact>,
-    ) -> TractResult<(TVec<InferenceFact>, TVec<InferenceFact>, TVec<InferenceFact>)> {
-        let inputs_proxy: TVec<TensorProxy> =
-            (0..inputs.len()).map(|ix| TensorProxy::new(tvec!(0, ix as isize).into())).collect();
-        let outputs_proxy: TVec<TensorProxy> =
-            (0..outputs.len()).map(|ix| TensorProxy::new(tvec!(1, ix as isize).into())).collect();
+    ) -> TractResult<(
+        TVec<InferenceFact>,
+        TVec<InferenceFact>,
+        TVec<InferenceFact>,
+    )> {
+        let inputs_proxy: TVec<TensorProxy> = (0..inputs.len())
+            .map(|ix| TensorProxy::new(tvec!(0, ix as isize).into()))
+            .collect();
+        let outputs_proxy: TVec<TensorProxy> = (0..outputs.len())
+            .map(|ix| TensorProxy::new(tvec!(1, ix as isize).into()))
+            .collect();
 
         trace!("Building rules for {:?}", self);
         let mut solver = Solver::default();

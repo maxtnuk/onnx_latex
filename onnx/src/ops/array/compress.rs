@@ -15,15 +15,19 @@ pub struct Compress {
 }
 
 impl_dyn_hash!(Compress);
-impl MathGen for Compress{}
+impl MathGen for Compress {}
 
 impl Compress {
     unsafe fn eval_t<T: Datum>(&self, input: &Tensor, conds: &[bool], output: &mut Tensor) {
         use tract_ndarray::*;
         let input = input.to_array_view_unchecked::<T>();
         if let Some(ax) = self.axis {
-            for (ixo, ixi) in
-                conds.iter().enumerate().filter(|(_, c)| **c).map(|(ix, _)| ix).enumerate()
+            for (ixo, ixi) in conds
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| **c)
+                .map(|(ix, _)| ix)
+                .enumerate()
             {
                 output
                     .to_array_view_mut_unchecked::<T>()

@@ -19,7 +19,10 @@ pub fn clip_6(
 ) -> TractResult<(Box<dyn InferenceOp>, Vec<String>)> {
     let min: Option<f32> = node.get_attr_opt("min")?;
     let max: Option<f32> = node.get_attr_opt("max")?;
-    Ok((expand(tract_hir::ops::activations::Clip::new(min, max)), vec![]))
+    Ok((
+        expand(tract_hir::ops::activations::Clip::new(min, max)),
+        vec![],
+    ))
 }
 
 pub fn clip_11(
@@ -38,8 +41,10 @@ pub struct Clip11 {
 }
 
 impl_dyn_hash!(Clip11);
-impl MathGen for Clip11{
-    
+impl MathGen for Clip11 {
+    fn get_original_type(&self) -> FormulKind {
+        FormulKind::Function
+    }
 }
 
 impl Expansion for Clip11 {

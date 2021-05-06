@@ -18,7 +18,7 @@ pub fn rem(
 pub struct RemInt;
 
 impl_dyn_hash!(RemInt);
-impl MathGen for RemInt{}
+impl MathGen for RemInt {}
 
 impl Expansion for RemInt {
     fn name(&self) -> Cow<str> {
@@ -34,7 +34,8 @@ impl Expansion for RemInt {
         outputs: &'p [TensorProxy],
     ) -> InferenceResult {
         tract_hir::ops::binary::rules(s, inputs, outputs, move |a, b| {
-            a.common_super_type(b).with_context(|| format!("No super type for {:?} and {:?}", a, b))
+            a.common_super_type(b)
+                .with_context(|| format!("No super type for {:?} and {:?}", a, b))
         })
     }
 

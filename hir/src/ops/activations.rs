@@ -1,4 +1,7 @@
-use crate::{internal::*, utils::{self, MathGen}};
+use crate::{
+    internal::*,
+    utils::{self, MathGen},
+};
 use tract_core::ops::math::*;
 
 macro_rules! activation {
@@ -46,8 +49,13 @@ pub struct Clip(
     #[educe(Hash(method = "hash_opt_f32"))] Option<f32>,
 );
 impl MathGen for Clip {
-    fn gen_forward(&self, idx: usize)->String {
-        utils::gen_symbol(None, utils::FormulKind::Activation, idx)
+    fn get_original_type(&self) -> FormulKind {
+        FormulKind::Activation
+    }
+    fn gen_forward_value(&self, inputs: Vec<String>) -> String {
+        let i1 = self.0.map(|s| s.to_string()).unwrap_or("-∞".to_string());
+        let i2 = self.1.map(|s| s.to_string()).unwrap_or("∞".to_string());
+        format!(r#"min(max({},{}),{})"#, inputs[0], i1, i2)
     }
 }
 
@@ -68,9 +76,12 @@ activation!(Clip, |op, name: &str, model: &mut TypedModel, inputs| {
 pub struct Softplus;
 
 // TODO mathgen
-impl MathGen for Softplus{}
+impl MathGen for Softplus {}
 
-activation!(Softplus, |_op, name: &str, model: &mut TypedModel, inputs| {
+activation!(Softplus, |_op,
+                       name: &str,
+                       model: &mut TypedModel,
+                       inputs| {
     let one = broadcast_scalar(1.0, model, inputs)?;
     let wire = model.wire_node(name.to_string() + ".exp", exp(), inputs)?;
     let wire = model.wire_node(name.to_string() + ".plus_one", add::unary(one), &wire)?;
@@ -81,14 +92,20 @@ activation!(Softplus, |_op, name: &str, model: &mut TypedModel, inputs| {
 #[derive(Debug, Clone, new, Hash)]
 pub struct Softsign;
 
-impl MathGen for Softsign{}
+impl MathGen for Softsign {}
 
-activation!(Softsign, |_op, name: &str, model: &mut TypedModel, inputs| {
+activation!(Softsign, |_op,
+                       name: &str,
+                       model: &mut TypedModel,
+                       inputs| {
     let one = broadcast_scalar(1.0, model, inputs)?;
     let x_abs = model.wire_node(name.to_string() + ".abs", abs(), inputs)?;
     let denum = model.wire_node(name.to_string() + ".plus_one", add::unary(one), &x_abs)?;
-    let wire =
-        model.wire_node(name.to_string() + ".div", div::bin_typed(), &[inputs[0], denum[0]])?;
+    let wire = model.wire_node(
+        name.to_string() + ".div",
+        div::bin_typed(),
+        &[inputs[0], denum[0]],
+    )?;
     Ok(wire)
 });
 
@@ -96,16 +113,23 @@ activation!(Softsign, |_op, name: &str, model: &mut TypedModel, inputs| {
 #[educe(Hash)]
 pub struct Elu(#[educe(Hash(method = "hash_f32"))] pub f32);
 
-impl MathGen for Elu{}
+impl MathGen for Elu {}
 
 activation!(Elu, |op, name: &str, model: &mut TypedModel, inputs| {
     let zero = broadcast_scalar(0.0, model, inputs)?;
     let minus_one = broadcast_scalar(-1.0, model, inputs)?;
     let alpha = broadcast_scalar(op.0, model, inputs)?;
     let x_exp = model.wire_node(name.to_string() + ".exp", exp(), inputs)?;
-    let minus_one =
-        model.wire_node(name.to_string() + ".minus_one", add::unary(minus_one), &x_exp)?;
-    let neg = model.wire_node(name.to_string() + ".mul_alpha", mul::unary(alpha), &minus_one)?;
+    let minus_one = model.wire_node(
+        name.to_string() + ".minus_one",
+        add::unary(minus_one),
+        &x_exp,
+    )?;
+    let neg = model.wire_node(
+        name.to_string() + ".mul_alpha",
+        mul::unary(alpha),
+        &minus_one,
+    )?;
     let test = model.wire_node(
         name.to_string() + ".test",
         tract_core::ops::logic::lesser::unary(zero),
@@ -126,9 +150,19 @@ pub struct HardSigmoid(
     #[educe(Hash(method = "hash_f32"))] pub f32,
 );
 
-impl MathGen for HardSigmoid{}
+impl MathGen for HardSigmoid {
+    fn get_original_type(&self) -> FormulKind {
+        FormulKind::Activation
+    }
+    fn gen_forward_value(&self, inputs: Vec<String>) -> String {
+        format!(r#"\frac{{1}}{{1+e^{{-({})}}}}"#, inputs[0])
+    }
+}
 
-activation!(HardSigmoid, |op, name: &str, model: &mut TypedModel, inputs| {
+activation!(HardSigmoid, |op,
+                          name: &str,
+                          model: &mut TypedModel,
+                          inputs| {
     let alpha = broadcast_scalar(op.0, model, inputs)?;
     let beta = broadcast_scalar(op.1, model, inputs)?;
     let one = broadcast_scalar(1.0, model, inputs)?;
@@ -144,9 +178,12 @@ activation!(HardSigmoid, |op, name: &str, model: &mut TypedModel, inputs| {
 #[educe(Hash)]
 pub struct LeakyRelu(#[educe(Hash(method = "hash_f32"))] pub f32);
 
-impl MathGen for LeakyRelu{}
+impl MathGen for LeakyRelu {}
 
-activation!(LeakyRelu, |op, name: &str, model: &mut TypedModel, inputs| {
+activation!(LeakyRelu, |op,
+                        name: &str,
+                        model: &mut TypedModel,
+                        inputs| {
     let zero = broadcast_scalar(0.0, model, inputs)?;
     let alpha = broadcast_scalar(op.0, model, inputs)?;
     let neg = model.wire_node(name.to_string() + ".mul_alpha", mul::unary(alpha), &inputs)?;
@@ -170,19 +207,22 @@ pub struct ParametricSoftplus(
     #[educe(Hash(method = "hash_f32"))] pub f32,
 );
 
-impl MathGen for ParametricSoftplus{}
+impl MathGen for ParametricSoftplus {}
 
-activation!(ParametricSoftplus, |op, name: &str, model: &mut TypedModel, inputs| {
-    let alpha = broadcast_scalar(op.0, model, inputs)?;
-    let beta = broadcast_scalar(op.1, model, inputs)?;
-    let one = broadcast_scalar(1.0, model, inputs)?;
-    let wire = model.wire_node(name.to_string() + ".mul_beta", mul::unary(beta), inputs)?;
-    let wire = model.wire_node(name.to_string() + ".exp", exp(), &wire)?;
-    let wire = model.wire_node(name.to_string() + ".plus_one", add::unary(one), &wire)?;
-    let wire = model.wire_node(name.to_string() + ".ln", ln(), &wire)?;
-    let wire = model.wire_node(name.to_string() + ".mul_alpha", mul::unary(alpha), &wire)?;
-    Ok(wire)
-});
+activation!(
+    ParametricSoftplus,
+    |op, name: &str, model: &mut TypedModel, inputs| {
+        let alpha = broadcast_scalar(op.0, model, inputs)?;
+        let beta = broadcast_scalar(op.1, model, inputs)?;
+        let one = broadcast_scalar(1.0, model, inputs)?;
+        let wire = model.wire_node(name.to_string() + ".mul_beta", mul::unary(beta), inputs)?;
+        let wire = model.wire_node(name.to_string() + ".exp", exp(), &wire)?;
+        let wire = model.wire_node(name.to_string() + ".plus_one", add::unary(one), &wire)?;
+        let wire = model.wire_node(name.to_string() + ".ln", ln(), &wire)?;
+        let wire = model.wire_node(name.to_string() + ".mul_alpha", mul::unary(alpha), &wire)?;
+        Ok(wire)
+    }
+);
 
 #[derive(Debug, Clone, new, Educe)]
 #[educe(Hash)]
@@ -191,9 +231,12 @@ pub struct ScaledTanh(
     #[educe(Hash(method = "hash_f32"))] pub f32,
 );
 
-impl MathGen for ScaledTanh{}
+impl MathGen for ScaledTanh {}
 
-activation!(ScaledTanh, |op, name: &str, model: &mut TypedModel, inputs| {
+activation!(ScaledTanh, |op,
+                         name: &str,
+                         model: &mut TypedModel,
+                         inputs| {
     let alpha = broadcast_scalar(op.0, model, inputs)?;
     let beta = broadcast_scalar(op.1, model, inputs)?;
     let wire = model.wire_node(name.to_string() + ".mul_beta", mul::unary(beta), inputs)?;
@@ -209,7 +252,7 @@ pub struct Selu(
     #[educe(Hash(method = "hash_f32"))] pub f32,
 );
 
-impl MathGen for Selu{}
+impl MathGen for Selu {}
 
 activation!(Selu, |op, name: &str, model: &mut TypedModel, inputs| {
     let zero = broadcast_scalar(0.0, model, inputs)?;
@@ -218,7 +261,11 @@ activation!(Selu, |op, name: &str, model: &mut TypedModel, inputs| {
     let gamma = broadcast_scalar(op.1, model, inputs)?;
     let wire = model.wire_node(name.to_string() + ".exp", exp(), &inputs)?;
     let wire = model.wire_node(name.to_string() + ".mul_alpha", mul::unary(alpha), &wire)?;
-    let wire = model.wire_node(name.to_string() + ".sub_alpha", add::unary(minus_alpha), &wire)?;
+    let wire = model.wire_node(
+        name.to_string() + ".sub_alpha",
+        add::unary(minus_alpha),
+        &wire,
+    )?;
     let test = model.wire_node(
         name.to_string() + ".test",
         tract_core::ops::logic::lesser::unary(zero),
@@ -240,15 +287,17 @@ pub struct Shrink(
     #[educe(Hash(method = "hash_f32"))] pub f32,
 );
 
-impl MathGen for Shrink{}
+impl MathGen for Shrink {}
 
 activation!(Shrink, |op, name: &str, model: &mut TypedModel, inputs| {
     let bias = broadcast_scalar(op.0, model, inputs)?;
     let lambda = broadcast_scalar(op.1, model, inputs)?;
     let minus_bias = broadcast_scalar(-op.0, model, inputs)?;
     let minus_lambda = broadcast_scalar(-op.1, model, inputs)?;
-    let zero =
-        model.add_const(name.to_string() + ".zero", broadcast_scalar(0.0, model, inputs)?)?;
+    let zero = model.add_const(
+        name.to_string() + ".zero",
+        broadcast_scalar(0.0, model, inputs)?,
+    )?;
     let test_pos = model.wire_node(
         name.to_string() + ".test_pos",
         tract_core::ops::logic::lesser::unary(lambda),
@@ -286,11 +335,16 @@ activation!(Shrink, |op, name: &str, model: &mut TypedModel, inputs| {
 #[educe(Hash)]
 pub struct ThresholdRelu(#[educe(Hash(method = "hash_f32"))] pub f32);
 
-impl MathGen for ThresholdRelu{}
+impl MathGen for ThresholdRelu {}
 
-activation!(ThresholdRelu, |op, name: &str, model: &mut TypedModel, inputs| {
-    let zero =
-        model.add_const(name.to_string() + ".zero", broadcast_scalar(0.0, model, inputs)?)?;
+activation!(ThresholdRelu, |op,
+                            name: &str,
+                            model: &mut TypedModel,
+                            inputs| {
+    let zero = model.add_const(
+        name.to_string() + ".zero",
+        broadcast_scalar(0.0, model, inputs)?,
+    )?;
     let alpha = broadcast_scalar(op.0, model, inputs)?;
     let test = model.wire_node(
         name.to_string() + ".test",

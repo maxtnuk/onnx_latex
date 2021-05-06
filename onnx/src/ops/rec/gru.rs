@@ -34,7 +34,7 @@ pub struct GRU {
 }
 
 impl_dyn_hash!(GRU);
-impl MathGen for GRU{}
+impl MathGen for GRU {}
 
 impl Default for GRU {
     fn default() -> GRU {
@@ -201,7 +201,11 @@ impl GRU {
         // scann inner interface: [chunk=1, batch_size, input_size]
         // onnx inner interface: [batch_size, input_size]
         outer_inputs.push(inputs[0]);
-        input_mapping.push(scan::InputMapping::Scan { slot: 0, axis: 0, chunk });
+        input_mapping.push(scan::InputMapping::Scan {
+            slot: 0,
+            axis: 0,
+            chunk,
+        });
         let mut x_source_fact = x_fact.without_value();
         x_source_fact.shape.set(0, 1.to_dim());
         let x_source = body.add_source("x_source", x_source_fact)?.into();
@@ -228,7 +232,9 @@ impl GRU {
             target_wire!(b_dir = array::Slice::new(0, dir, dir + 1), inputs[slot]);
             outer_inputs.push(b_dir);
             input_mapping.push(scan::InputMapping::Full { slot });
-            let b = body.add_source("b", target.outlet_fact(b_dir)?.clone())?.into();
+            let b = body
+                .add_source("b", target.outlet_fact(b_dir)?.clone())?
+                .into();
             Some(b)
         } else {
             None
@@ -254,7 +260,10 @@ impl GRU {
         };
         input_mapping.push(scan::InputMapping::State { initializer });
         let h_source = body
-            .add_source("h_source", TypedFact::dt_shape(x_fact.datum_type, &[1, b_size, h_size]))?
+            .add_source(
+                "h_source",
+                TypedFact::dt_shape(x_fact.datum_type, &[1, b_size, h_size]),
+            )?
             .into();
 
         wire!(Ht_1 = AxisOp::Rm(0), h_source);
@@ -268,8 +277,16 @@ impl GRU {
         wire!(Wh = array::Slice::new(0, 2 * h_size, 3 * h_size), W);
 
         // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
-        wire!(Xt_WzT = matmul::MatMul::default().with_b_trans(true), Xt, Wz);
-        wire!(Ht_1_RzT = matmul::MatMul::default().with_b_trans(true), Ht_1, Rz);
+        wire!(
+            Xt_WzT = matmul::MatMul::default().with_b_trans(true),
+            Xt,
+            Wz
+        );
+        wire!(
+            Ht_1_RzT = matmul::MatMul::default().with_b_trans(true),
+            Ht_1,
+            Rz
+        );
         wire!(zt0 = math::add::bin_typed(), Xt_WzT, Ht_1_RzT);
         let mut zt0 = zt0;
         if let Some(b) = b {
@@ -282,8 +299,16 @@ impl GRU {
         wire!(zt = self.f.clone(), zt0);
 
         // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)
-        wire!(Xt_WrT = matmul::MatMul::default().with_b_trans(true), Xt, Wr);
-        wire!(Ht_1_RrT = matmul::MatMul::default().with_b_trans(true), Ht_1, Rr);
+        wire!(
+            Xt_WrT = matmul::MatMul::default().with_b_trans(true),
+            Xt,
+            Wr
+        );
+        wire!(
+            Ht_1_RrT = matmul::MatMul::default().with_b_trans(true),
+            Ht_1,
+            Rr
+        );
         wire!(rt0 = math::add::bin_typed(), Xt_WrT, Ht_1_RrT);
         let mut rt0 = rt0;
         if let Some(b) = b {
@@ -297,14 +322,26 @@ impl GRU {
 
         // ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh) # default, when linear_before_reset = 0
         // ht = g(Xt*(Wh^T) + (rt (.) (Ht-1*(Rh^T) + Rbh)) + Wbh) # when linear_before_reset != 0
-        wire!(Xt_WhT = matmul::MatMul::default().with_b_trans(true), Xt, Wh);
+        wire!(
+            Xt_WhT = matmul::MatMul::default().with_b_trans(true),
+            Xt,
+            Wh
+        );
         let rt_Ht_1_RhT = if self.linear_before_reset {
-            wire!(Ht_1_RhT = matmul::MatMul::default().with_b_trans(true), Ht_1, Rh);
+            wire!(
+                Ht_1_RhT = matmul::MatMul::default().with_b_trans(true),
+                Ht_1,
+                Rh
+            );
             wire!(rt_Ht_1_RhT = math::mul::bin_typed(), rt, Ht_1_RhT);
             rt_Ht_1_RhT
         } else {
             wire!(rt_Ht_1 = math::mul::bin_typed(), rt, Ht_1);
-            wire!(rt_Ht_1_RhT = matmul::MatMul::default().with_b_trans(true), rt_Ht_1, Rh);
+            wire!(
+                rt_Ht_1_RhT = matmul::MatMul::default().with_b_trans(true),
+                rt_Ht_1,
+                Rh
+            );
             rt_Ht_1_RhT
         };
         wire!(ht0 = math::add::bin_typed(), Xt_WhT, rt_Ht_1_RhT);

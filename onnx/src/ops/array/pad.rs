@@ -39,7 +39,10 @@ pub fn pad_2(
     let rank = pads.len() / 2;
     let pads = (0..rank).map(|ax| (pads[ax], pads[ax + rank])).collect();
     let mode = pad_mode(node)?;
-    Ok((Box::new(tract_hir::ops::array::Pad::new(pads, mode)), vec![]))
+    Ok((
+        Box::new(tract_hir::ops::array::Pad::new(pads, mode)),
+        vec![],
+    ))
 }
 
 pub fn pad_11(
@@ -58,9 +61,7 @@ pub struct Pad11 {
 }
 
 impl_dyn_hash!(Pad11);
-impl MathGen for Pad11{
-    
-}
+impl MathGen for Pad11 {}
 
 impl Expansion for Pad11 {
     fn name(&self) -> Cow<str> {
@@ -88,8 +89,9 @@ impl Expansion for Pad11 {
         s.given(&inputs[1].value, move |s, pads| {
             let pads = pads.as_slice::<i64>()?;
             let rank = pads.len() / 2;
-            let pads: Vec<_> =
-                (0..rank).map(|ax| (pads[ax] as usize, pads[ax + rank] as usize)).collect();
+            let pads: Vec<_> = (0..rank)
+                .map(|ax| (pads[ax] as usize, pads[ax + rank] as usize))
+                .collect();
             for i in 0..rank {
                 s.equals(
                     &outputs[0].shape[i],
@@ -124,7 +126,9 @@ impl Expansion for Pad11 {
             .cast_to::<i64>()?;
         let pads = pads.as_slice::<i64>()?;
         let rank = pads.len() / 2;
-        let pads = (0..rank).map(|ax| (pads[ax] as usize, pads[ax + rank] as usize)).collect();
+        let pads = (0..rank)
+            .map(|ax| (pads[ax] as usize, pads[ax + rank] as usize))
+            .collect();
         model.wire_node(name, array::Pad { mode, pads }, &inputs[0..1])
     }
 }

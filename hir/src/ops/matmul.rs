@@ -1,5 +1,5 @@
-use crate::{infer::*, utils::MathGen};
 use crate::internal::*;
+use crate::{infer::*, utils::MathGen};
 
 pub use tract_core::ops::matmul::MatMul;
 
@@ -25,7 +25,7 @@ impl MatMulInference {
         MatMulInference { c_trans, ..self }
     }
 }
-impl MathGen for MatMulInference{  }
+impl MathGen for MatMulInference {}
 
 impl Expansion for MatMulInference {
     fn name(&self) -> Cow<str> {
@@ -44,11 +44,15 @@ impl Expansion for MatMulInference {
         check_output_arity(&outputs, 1)?;
         s.equals(&inputs[0].datum_type, &inputs[1].datum_type)?;
         s.equals(&inputs[0].datum_type, &outputs[0].datum_type)?;
-        s.given_2(&inputs[0].shape, &inputs[1].shape, move |s, ashape, bshape| {
-            let (_, _, _, cshape) =
-                compute_shapes(ashape, bshape, self.a_trans, self.b_trans, self.c_trans)?;
-            s.equals(&outputs[0].shape, cshape)
-        })?;
+        s.given_2(
+            &inputs[0].shape,
+            &inputs[1].shape,
+            move |s, ashape, bshape| {
+                let (_, _, _, cshape) =
+                    compute_shapes(ashape, bshape, self.a_trans, self.b_trans, self.c_trans)?;
+                s.equals(&outputs[0].shape, cshape)
+            },
+        )?;
         Ok(())
     }
 
@@ -102,8 +106,14 @@ pub fn compute_shapes<D: DimLike>(
     ])
     .ok_or_else(|| format_err!("Could not broadcast"))?;
     let mut c_bc_shape: TVec<D> = c_bc_shape_prefix.clone();
-    let (mut m, mut ka) = (ashape[ashape.len() - 2].clone(), ashape[ashape.len() - 1].clone());
-    let (mut kb, mut n) = (bshape[bshape.len() - 2].clone(), bshape[bshape.len() - 1].clone());
+    let (mut m, mut ka) = (
+        ashape[ashape.len() - 2].clone(),
+        ashape[ashape.len() - 1].clone(),
+    );
+    let (mut kb, mut n) = (
+        bshape[bshape.len() - 2].clone(),
+        bshape[bshape.len() - 1].clone(),
+    );
     if a_trans {
         std::mem::swap(&mut m, &mut ka);
     }

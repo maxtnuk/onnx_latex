@@ -17,7 +17,7 @@ struct OneHot {
 }
 
 impl_dyn_hash!(OneHot);
-impl MathGen for OneHot{}
+impl MathGen for OneHot {}
 
 impl Expansion for OneHot {
     fn name(&self) -> Cow<str> {
@@ -36,7 +36,11 @@ impl Expansion for OneHot {
         let values = model.outlet_fact(inputs[2])?;
         if let (Some(dim), Some(values)) = (&dim.konst, &values.konst) {
             let rank = model.outlet_fact(inputs[0])?.rank();
-            let axis = if self.axis < 0 { self.axis + rank as i64 + 1 } else { self.axis } as usize;
+            let axis = if self.axis < 0 {
+                self.axis + rank as i64 + 1
+            } else {
+                self.axis
+            } as usize;
             let dim = dim.cast_to::<i64>()?;
             let dim = dim.as_slice::<i64>()?[0];
             if dim < 0 {
@@ -52,7 +56,11 @@ impl Expansion for OneHot {
             };
             model.wire_node(prefix, op, &[inputs[0]])
         } else {
-            bail!("Expected dim and value to be determined, got {:?} and {:?}", dim, values)
+            bail!(
+                "Expected dim and value to be determined, got {:?} and {:?}",
+                dim,
+                values
+            )
         }
     }
 
@@ -69,7 +77,11 @@ impl Expansion for OneHot {
         s.equals(&inputs[2].rank, 1)?;
         s.equals(&inputs[2].shape[0], 2.to_dim())?;
         s.given(&inputs[0].rank, move |s, irank| {
-            let axis = if self.axis < 0 { self.axis + irank + 1 } else { self.axis } as usize;
+            let axis = if self.axis < 0 {
+                self.axis + irank + 1
+            } else {
+                self.axis
+            } as usize;
             for ix in 0..axis {
                 s.equals(&inputs[0].shape[ix], &outputs[0].shape[ix])?;
             }

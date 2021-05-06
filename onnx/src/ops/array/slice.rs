@@ -32,9 +32,7 @@ pub struct Slice1 {
 }
 
 impl_dyn_hash!(Slice1);
-impl MathGen for Slice1{
-    
-}
+impl MathGen for Slice1 {}
 
 impl Expansion for Slice1 {
     fn name(&self) -> Cow<str> {
@@ -78,8 +76,16 @@ impl Expansion for Slice1 {
                             e = d.into();
                         }
                     }
-                    let b = if b < 0 { d.bex() + TDim::from(b) } else { TDim::from(b).bex() };
-                    let e = if e < 0 { d.bex() + TDim::from(e) } else { TDim::from(e).bex() };
+                    let b = if b < 0 {
+                        d.bex() + TDim::from(b)
+                    } else {
+                        TDim::from(b).bex()
+                    };
+                    let e = if e < 0 {
+                        d.bex() + TDim::from(e)
+                    } else {
+                        TDim::from(e).bex()
+                    };
                     s.equals(&outputs[0].shape[axis], e - b)
                 } else {
                     s.equals(&outputs[0].shape[axis], &shape[axis])
@@ -111,7 +117,13 @@ impl Expansion for Slice1 {
                     )?[0];
                 }
             } else {
-                bail!("Can't translate slice: axis={} dim={} b={} e={}", axis, dim, b, e)
+                bail!(
+                    "Can't translate slice: axis={} dim={} b={} e={}",
+                    axis,
+                    dim,
+                    b,
+                    e
+                )
             }
         }
         target.rename_node(wire.node, &*prefix)?;

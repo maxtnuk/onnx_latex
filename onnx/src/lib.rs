@@ -22,7 +22,6 @@ pub mod pb {
 pub mod pb_helpers;
 pub mod tensor;
 
-
 pub use model::Onnx;
 
 pub use tract_hir::tract_core;

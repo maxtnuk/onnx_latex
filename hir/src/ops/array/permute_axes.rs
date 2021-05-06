@@ -7,7 +7,7 @@ pub struct PermuteAxes {
 }
 
 impl_dyn_hash!(PermuteAxes);
-impl MathGen for PermuteAxes{}
+impl MathGen for PermuteAxes {}
 
 impl PermuteAxes {
     fn compute_shape<D: DimLike>(&self, input: &[D]) -> TractResult<TVec<D>> {

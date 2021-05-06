@@ -7,17 +7,22 @@ pub fn resize(
     _ctx: &ParsingContext,
     node: &NodeProto,
 ) -> TractResult<(Box<dyn InferenceOp>, Vec<String>)> {
-    let coord_transformer =
-        match node.get_attr_opt("coordinate_transformation_mode")?.unwrap_or("half_pixel") {
-            "align_corners" => CoordTransformer::AlignCorners,
-            "half_pixel" => CoordTransformer::HalfPixel,
-            s => todo!("coordinate_transformation_mode: {}", s),
-        };
+    let coord_transformer = match node
+        .get_attr_opt("coordinate_transformation_mode")?
+        .unwrap_or("half_pixel")
+    {
+        "align_corners" => CoordTransformer::AlignCorners,
+        "half_pixel" => CoordTransformer::HalfPixel,
+        s => todo!("coordinate_transformation_mode: {}", s),
+    };
     let interpolator = match node.get_attr("mode")? {
         "linear" => Interpolator::Linear,
         s => todo!("mode: {}", s),
     };
-    let nearest = match node.get_attr_opt("nearest_mode")?.unwrap_or("round_prefer_floor") {
+    let nearest = match node
+        .get_attr_opt("nearest_mode")?
+        .unwrap_or("round_prefer_floor")
+    {
         "floor" => Nearest::Floor,
         "round_prefer_floor" => Nearest::RoundPreferFloor,
         s => todo!("nearest_mode: {}", s),
@@ -81,7 +86,7 @@ struct Resize {
 }
 
 impl_dyn_hash!(Resize);
-impl MathGen for Resize{}
+impl MathGen for Resize {}
 
 impl Op for Resize {
     fn name(&self) -> Cow<str> {
@@ -112,7 +117,11 @@ impl Resize {
         if let Some(sizes) = input_sizes {
             if sizes.len() == input_shape.len() {
                 let size = sizes.cast_to::<i64>()?;
-                return Ok(size.as_slice::<i64>()?.iter().map(|i| *i as usize).collect());
+                return Ok(size
+                    .as_slice::<i64>()?
+                    .iter()
+                    .map(|i| *i as usize)
+                    .collect());
             }
         }
         bail!("Neither shape not scale makes sense: input_shape: {:?}, scale: {:?}, sizes: {:?}")
@@ -212,8 +221,10 @@ fn rules_with_scales<'r, 'p: 'r, 's: 'r>(
         &inputs[0].shape,
         &inputs[op.optional_scales_input.unwrap()].value,
         move |s, input_shape, scales| {
-            let input_shape =
-                input_shape.iter().map(|d| d.to_usize()).collect::<TractResult<TVec<usize>>>()?;
+            let input_shape = input_shape
+                .iter()
+                .map(|d| d.to_usize())
+                .collect::<TractResult<TVec<usize>>>()?;
             let output_size = op.compute_output_shape(&input_shape, Some(scales.as_ref()), None)?;
             let rank = input_shape.len();
             for i in 0..rank {
@@ -257,7 +268,10 @@ impl TypedOp for Resize {
             scales.and_then(|f| f.konst.as_deref()),
             sizes.and_then(|f| f.konst.as_deref()),
         )?;
-        Ok(tvec!(TypedFact::dt_shape(inputs[0].datum_type, &output_shape)))
+        Ok(tvec!(TypedFact::dt_shape(
+            inputs[0].datum_type,
+            &output_shape
+        )))
     }
 
     fn declutter(

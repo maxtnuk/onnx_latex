@@ -9,7 +9,7 @@ pub struct Crop {
 }
 
 impl_dyn_hash!(Crop);
-impl MathGen for Crop{}
+impl MathGen for Crop {}
 
 impl Expansion for Crop {
     fn name(&self) -> Cow<str> {

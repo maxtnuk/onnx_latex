@@ -169,7 +169,9 @@ where
 {
     /// Returns the current value of the expression in the given context.
     fn get(&self, context: &Context) -> TractResult<T> {
-        self.0.iter().try_fold(T::zero(), |acc, it| Ok(acc + it.0.get(context)?))
+        self.0
+            .iter()
+            .try_fold(T::zero(), |acc, it| Ok(acc + it.0.get(context)?))
     }
 
     /// Tries to set the value of the expression in the given context.
@@ -269,7 +271,9 @@ where
 {
     /// Returns the current value of the expression in the given context.
     fn get(&self, context: &Context) -> TractResult<T> {
-        context.get(&self.0).with_context(|| format!("while getting {:?}", self.0))
+        context
+            .get(&self.0)
+            .with_context(|| format!("while getting {:?}", self.0))
     }
 
     /// Tries to set the value of the expression in the given context.
@@ -277,7 +281,9 @@ where
         let old = self.get(context)?;
         let new = old.unify(&value)?;
         let diff = old != new;
-        context.set(&self.0, new).with_context(|| format!("while setting {:?}", self.0))?;
+        context
+            .set(&self.0, new)
+            .with_context(|| format!("while setting {:?}", self.0))?;
         Ok(diff)
     }
 

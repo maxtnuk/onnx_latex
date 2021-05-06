@@ -5,15 +5,21 @@ use tract_ndarray::Dimension;
 pub struct NonZero;
 
 impl_dyn_hash!(NonZero);
-impl MathGen for NonZero{}
+impl MathGen for NonZero {}
 
 impl NonZero {
     unsafe fn eval_t<T: Datum + tract_num_traits::Zero>(input: &Tensor) -> TractResult<Tensor> {
-        let count = input.as_slice_unchecked::<T>().iter().filter(|d| !d.is_zero()).count();
+        let count = input
+            .as_slice_unchecked::<T>()
+            .iter()
+            .filter(|d| !d.is_zero())
+            .count();
         let view = input.to_array_view_unchecked::<T>();
         let mut output = Tensor::uninitialized::<i64>(&[input.rank(), count])?;
-        let mut view_mut: tract_ndarray::ArrayViewMut2<i64> =
-            output.to_array_view_mut_unchecked::<i64>().into_dimensionality().unwrap();
+        let mut view_mut: tract_ndarray::ArrayViewMut2<i64> = output
+            .to_array_view_mut_unchecked::<i64>()
+            .into_dimensionality()
+            .unwrap();
         let mut i = 0;
         for (coords, _) in view.indexed_iter().filter(|(_, value)| !value.is_zero()) {
             view_mut

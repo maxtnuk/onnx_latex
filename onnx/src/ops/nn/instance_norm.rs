@@ -18,7 +18,7 @@ pub struct InstanceNorm {
 }
 
 impl_dyn_hash!(InstanceNorm);
-impl MathGen for InstanceNorm{}
+impl MathGen for InstanceNorm {}
 
 impl Expansion for InstanceNorm {
     fn name(&self) -> Cow<str> {
@@ -63,8 +63,11 @@ impl Expansion for InstanceNorm {
             tract_hir::ops::math::sub::bin_typed(),
             &[inputs[0], mean],
         )?;
-        let sqr_diff =
-            model.wire_node(format!("{}.sqr", name), tract_hir::ops::math::square(), &diff)?;
+        let sqr_diff = model.wire_node(
+            format!("{}.sqr", name),
+            tract_hir::ops::math::square(),
+            &diff,
+        )?;
         let vari = tract_hir::ops::nn::Reduce::new(
             Some(axes.clone()),
             true,
@@ -74,7 +77,9 @@ impl Expansion for InstanceNorm {
         let vari_sane = model.wire_node(
             format!("{}.epsilon", name),
             tract_hir::ops::math::add::unary(
-                tensor0(self.epsilon).broadcast_into_rank(rank)?.into_arc_tensor(),
+                tensor0(self.epsilon)
+                    .broadcast_into_rank(rank)?
+                    .into_arc_tensor(),
             ),
             &[vari],
         )?;
@@ -88,8 +93,11 @@ impl Expansion for InstanceNorm {
             tract_hir::ops::math::mul::bin_typed(),
             &[diff[0], div[0]],
         )?;
-        let mut scale =
-            model.wire_node(format!("{}.add-scale-axis-n", name), AxisOp::Add(0), &inputs[1..2])?;
+        let mut scale = model.wire_node(
+            format!("{}.add-scale-axis-n", name),
+            AxisOp::Add(0),
+            &inputs[1..2],
+        )?;
         for i in 2..rank {
             scale = model.wire_node(
                 format!("{}.add-scale-axis-{}", name, i),
@@ -102,12 +110,22 @@ impl Expansion for InstanceNorm {
             tract_hir::ops::math::mul::bin_typed(),
             &[divised[0], scale[0]],
         )?;
-        let mut bias =
-            model.wire_node(format!("{}.add-bias-axis-n", name), AxisOp::Add(0), &inputs[2..3])?;
+        let mut bias = model.wire_node(
+            format!("{}.add-bias-axis-n", name),
+            AxisOp::Add(0),
+            &inputs[2..3],
+        )?;
         for i in 2..rank {
-            bias =
-                model.wire_node(format!("{}.add-bias-axis-{}", name, i), AxisOp::Add(2), &bias)?;
+            bias = model.wire_node(
+                format!("{}.add-bias-axis-{}", name, i),
+                AxisOp::Add(2),
+                &bias,
+            )?;
         }
-        model.wire_node(name, tract_hir::ops::math::add::bin_typed(), &[scaled[0], bias[0]])
+        model.wire_node(
+            name,
+            tract_hir::ops::math::add::bin_typed(),
+            &[scaled[0], bias[0]],
+        )
     }
 }

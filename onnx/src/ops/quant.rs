@@ -40,7 +40,7 @@ pub struct QuantizeLinear {
 }
 
 impl_dyn_hash!(QuantizeLinear);
-impl MathGen for QuantizeLinear{}
+impl MathGen for QuantizeLinear {}
 
 impl Expansion for QuantizeLinear {
     fn name(&self) -> Cow<str> {
@@ -55,7 +55,10 @@ impl Expansion for QuantizeLinear {
         inputs: &'p [TensorProxy],
         outputs: &'p [TensorProxy],
     ) -> TractResult<()> {
-        check_input_arity(&inputs, 2 + self.optional_zero_point_input.is_some() as usize)?;
+        check_input_arity(
+            &inputs,
+            2 + self.optional_zero_point_input.is_some() as usize,
+        )?;
         check_output_arity(&outputs, 1)?;
         //         s.equals(&inputs[1].rank, 0)?; broken in Onnx test suite
         s.equals(&inputs[1].datum_type, f32::datum_type())?;
@@ -108,7 +111,7 @@ pub struct DequantizeLinear {
 }
 
 impl_dyn_hash!(DequantizeLinear);
-impl MathGen for DequantizeLinear{}
+impl MathGen for DequantizeLinear {}
 
 impl Expansion for DequantizeLinear {
     fn name(&self) -> Cow<str> {
@@ -123,7 +126,10 @@ impl Expansion for DequantizeLinear {
         inputs: &'p [TensorProxy],
         outputs: &'p [TensorProxy],
     ) -> TractResult<()> {
-        check_input_arity(&inputs, 2 + self.optional_zero_point_input.is_some() as usize)?;
+        check_input_arity(
+            &inputs,
+            2 + self.optional_zero_point_input.is_some() as usize,
+        )?;
         check_output_arity(&outputs, 1)?;
         //         s.equals(&inputs[1].rank, 0)?; broken in Onnx test suite
         s.equals(&inputs[1].datum_type, f32::datum_type())?;
@@ -159,11 +165,20 @@ impl Expansion for DequantizeLinear {
             rctensor0(0u8)
         };
         let op: Box<dyn TypedOp> = if zero_point.datum_type() == u8::datum_type() {
-            Box::new(DequantizeLinearF32::new(scale, zero_point.as_slice::<u8>()?[0] as i32))
+            Box::new(DequantizeLinearF32::new(
+                scale,
+                zero_point.as_slice::<u8>()?[0] as i32,
+            ))
         } else if zero_point.datum_type() == i8::datum_type() {
-            Box::new(DequantizeLinearF32::new(scale, zero_point.as_slice::<i8>()?[0] as i32))
+            Box::new(DequantizeLinearF32::new(
+                scale,
+                zero_point.as_slice::<i8>()?[0] as i32,
+            ))
         } else {
-            Box::new(DequantizeLinearF32::new(scale, zero_point.as_slice::<i32>()?[0] as i32))
+            Box::new(DequantizeLinearF32::new(
+                scale,
+                zero_point.as_slice::<i32>()?[0] as i32,
+            ))
         };
         target.wire_node(prefix, op, &[inputs[0]])
     }
@@ -173,7 +188,7 @@ impl Expansion for DequantizeLinear {
 pub struct DynamicQuantizeLinear {}
 
 impl_dyn_hash!(DynamicQuantizeLinear);
-impl MathGen for DynamicQuantizeLinear{}
+impl MathGen for DynamicQuantizeLinear {}
 
 impl Expansion for DynamicQuantizeLinear {
     fn name(&self) -> Cow<str> {
@@ -329,7 +344,11 @@ mod tests {
         let data: [(&[f32], f32, u8); 3] = [
             (&[0., 2., -3., -2.5, 1.34, 0.5], 0.0196078438, 153),
             (&[-1., -2.1, -1.3, -2.5, -3.34, -4.], 0.0156862754, 255),
-            (&[1., 2.1, 1.3, 2.5, 3.34, 4., 1.5, 2.6, 3.9, 4., 3., 2.345], 0.0156862754, 0),
+            (
+                &[1., 2.1, 1.3, 2.5, 3.34, 4., 1.5, 2.6, 3.9, 4., 3., 2.345],
+                0.0156862754,
+                0,
+            ),
         ];
 
         let epsilon = 0.00000001;
@@ -345,8 +364,14 @@ mod tests {
     #[test]
     fn test_dynamic_quantize_linear_u8() {
         let data: [(&[f32], &[u8]); 3] = [
-            (&[0., 2., -3., -2.5, 1.34, 0.5], &[153, 255, 0, 26, 221, 179]),
-            (&[-1., -2.1, -1.3, -2.5, -3.34, -4.], &[191, 121, 172, 96, 42, 0]),
+            (
+                &[0., 2., -3., -2.5, 1.34, 0.5],
+                &[153, 255, 0, 26, 221, 179],
+            ),
+            (
+                &[-1., -2.1, -1.3, -2.5, -3.34, -4.],
+                &[191, 121, 172, 96, 42, 0],
+            ),
             (
                 &[1., 2.1, 1.3, 2.5, 3.34, 4., 1.5, 2.6, 3.9, 4., 3., 2.345],
                 &[64, 134, 83, 159, 213, 255, 96, 166, 249, 255, 191, 149],

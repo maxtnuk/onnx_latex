@@ -1,10 +1,21 @@
-use tract_onnx::{pb::ModelProto, tract_hir::{internal::{Expansion, OpState, SessionState}, ops::konst::Const, utils::FormulKind}};
+use tract_onnx::{
+    pb::ModelProto,
+    tract_core::ops::nn::Sigmoid,
+    tract_hir::{
+        internal::{Expansion, OpState, SessionState},
+        ops::{
+            array::Pad, dummy::Dummy, element_wise::ElementWiseOp, konst::Const, source::Source,
+        },
+        utils::{mathgen_ele_op, FormulKind, MathGen},
+    },
+};
 
 use nom::error::ErrorKind;
 use rand::prelude::*;
-use std::hash::Hash;
 use std::{borrow::Borrow, fmt::Debug};
 use std::{fmt::Display, io::Read, path::Path};
+use std::{hash::Hash, mem::ManuallyDrop};
+use tract_onnx::tract_hir::utils::mathgen_op;
 use tract_onnx::{prelude::*, tract_hir::infer::InferenceOp};
 
 use crate::parse_struct::{except_self_symbol_parts, only_inputs_symbol_parts};
@@ -14,6 +25,7 @@ use self::{
     node_info::{Formul, FormulNode},
     parse_struct::{insert_symbol_parts, op_parse, symbol_split, DebugValue},
 };
+use std::any::Any;
 
 use serde::{Deserialize, Serialize};
 
@@ -43,14 +55,13 @@ where
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LatexNode {
+    pub index: usize,
     pub inputs: Vec<usize>,
     pub outputs: Vec<usize>,
     pub symbol: String,
     pub value: String,
     pub op_name: String,
     pub shape: Vec<usize>,
-    pub forward_prefix: String,
-    pub backward_prefix: String,
     pub backward_value: String,
     pub backward_symbol: String,
     pub op_attributes: DebugValue,
@@ -126,17 +137,76 @@ pub enum ErrorResultTo {
     Total,
     Innner(usize),
 }
+macro_rules! each_op {
+    ($op: ident,[$($x:ident),*]) => {
+       {
+        let mut inner:Vec<Option<Box<dyn MathGen>>>=Vec::new();
+        $(
+            let t = mathgen_op::<$x>($op);
+            inner.push(t);
+        )*
+        inner
+       }
+    };
+}
+macro_rules! each_ele_op {
+    ($op: ident,[$($x:ident),*]) => {
+       {
+        let mut inner:Vec<Option<Box<dyn MathGen>>>=Vec::new();
+        $(
+            let t = mathgen_ele_op::<$x>($op);
+            inner.push(t);
+        )*
+        inner
+       }
+    };
+}
 
-pub fn parse_proto<P: AsRef<Path>>(path :P) -> TractResult<String>{
-    let proto_file= tract_onnx::onnx().proto_model_for_path(path)?;
-    let ss=serde_json::to_string(&proto_file).unwrap();
+pub fn parse_proto<P: AsRef<Path>>(path: P) -> TractResult<String> {
+    let proto_file = tract_onnx::onnx().proto_model_for_path(path)?;
+    let ss = serde_json::to_string(&proto_file).unwrap();
     Ok(ss)
 }
-pub fn into_proto(input :String) -> TractResult<()>{
-    let ss=serde_json::from_str::<ModelProto>(input.as_str()).unwrap();
+pub fn into_proto(input: String) -> TractResult<()> {
+    let ss = serde_json::from_str::<ModelProto>(input.as_str()).unwrap();
     let l = tract_onnx::onnx().parse(&ss).unwrap();
     let m = l.model.clone();
-    println!("{:?}",m);
+    // println!("{:?}",m);
+    Ok(())
+}
+pub fn model_info<P: AsRef<Path>>(path: P) -> TractResult<()> {
+    let model = tract_onnx::onnx()
+        // load the model
+        .model_for_path(path)?
+        // specify input type and shape
+        // optimize the model
+        // make the model runnable and fix its inputs and outputs
+        .into_runnable()?;
+    // let mm = model.model();
+    // println!("input shape{}",mm.node(0).)
+
+    for n in model.model().nodes() {
+        let op_name = n.op().name();
+        let node_name = n.name.clone();
+        println!("id: {}", n.id);
+        println!("op options {:?}", n.op());
+        println!("inputs: ");
+        for i in n.inputs.iter() {
+            print!(" {:?}", i);
+            let fact = model.model().outlet_fact(*i).unwrap();
+            println!("shape: {:?}", fact.shape.clone());
+            println!("value: {:?}", fact.value.clone());
+        }
+        for i in n.outputs.iter() {
+            println!("out test:{:?}", i.fact.shape);
+            for j in i.successors.iter() {
+                println!("output: {:?}", j);
+            }
+        }
+        println!("node name: {}", node_name);
+        println!("op name: {}", op_name);
+        println!();
+    }
     Ok(())
 }
 
@@ -162,15 +232,21 @@ impl LatexEngine {
         self.activation_count = 0;
     }
     pub fn parse_from_path<P: AsRef<Path>>(&mut self, path: P) -> TractResult<LatexResult> {
+        let orginal = tract_onnx::onnx().proto_model_for_path(path.as_ref())?;
         let plan = tract_onnx::onnx().model_for_path(path)?.into_runnable()?;
-        self.start_parse(&plan)
+        self.start_parse(&plan).map(|mut s| {
+            s.original_data = orginal;
+            s
+        })
     }
     pub fn parse_from_file(&mut self, file: &mut dyn Read) -> TractResult<LatexResult> {
+        let orginal = tract_onnx::onnx().proto_model_for_read(file)?;
         let plan = tract_onnx::onnx().model_for_read(file)?.into_runnable()?;
-        self.start_parse(&plan)
+        self.start_parse(&plan).map(|mut s| {
+            s.original_data = orginal;
+            s
+        })
     }
-
-   
 
     fn start_parse(&mut self, plan: &InferencePlan) -> TractResult<LatexResult> {
         let mm = plan.model();
@@ -189,6 +265,7 @@ impl LatexEngine {
             .unwrap();
 
         let result = self.parse_plan(&plan, tvec![input.into()], ParseMode::Full);
+
         Ok(result)
     }
 
@@ -218,12 +295,14 @@ impl LatexEngine {
             // println!("node {}", *n);
             let node_kind = self.configure_node(node, *n);
 
+            let node_op = Self::boxed_mathgen(node);
+
             if let Some(fk) = node_kind {
                 match fk {
-                    FormulKind::Not | FormulKind::Base => {}
-                    _ => {
+                    FormulKind::Activation | FormulKind::Function | FormulKind::Cnn => {
                         senario.push(*n);
                     }
+                    _ => {}
                 }
             }
 
@@ -256,30 +335,32 @@ impl LatexEngine {
             }
 
             // println!("opname {}",op_name);
-            // let forward_string = match mode {
-            //     ParseMode::Brief => self.parse_symbol(
-            //         self.symbol_map[*n].as_ref().unwrap().forward_prefix.clone(),
-            //         *n,
-            //         input_ids.clone(),
-            //     ),
-            //     ParseMode::Full => self.rec_node(node, model),
-            // };
+            let forward_string = match mode {
+                ParseMode::Brief => {
+                    let input_symbols = input_ids
+                        .iter()
+                        .map(|s| self.symbol_map[*s].as_ref().unwrap().symbol.clone())
+                        .collect();
+                    node_op.gen_forward_value(input_symbols)
+                }
+                ParseMode::Full => self.rec_node(node, model),
+            };
             // node formul
 
-            // let vs = eval(
-            //     session_state,
-            //     states[node.id].as_mut().map(|s| &mut **s),
-            //     node,
-            //     inputs,
-            // )
-            // .unwrap();
-            // values[node.id] = Some(vs.clone());
+            let vs = eval(
+                session_state,
+                states[node.id].as_mut().map(|s| &mut **s),
+                node,
+                inputs,
+            )
+            .unwrap();
+            values[node.id] = Some(vs.clone());
 
-            // if let Some(form) = self.symbol_map[*n].as_mut() {
-            //     form.inputs = input_ids.clone();
-            //     form.value = forward_string;
-            //     form.shape = vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
-            // }
+            if let Some(form) = self.symbol_map[*n].as_mut() {
+                form.inputs = input_ids.clone();
+                form.value = forward_string;
+                form.shape = vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
+            }
         }
 
         // backward
@@ -289,6 +370,29 @@ impl LatexEngine {
         latex_result.senario = senario;
         self.flush();
         latex_result
+    }
+    fn boxed_mathgen(node: &InferenceNode) -> Box<dyn MathGen> {
+        if let Some(e) = node
+            .op_as::<Box<dyn Expansion>>()
+            .map(|s| Box::new(s.clone()) as Box<dyn MathGen>)
+        {
+            e
+        } else {
+            let op = node.op();
+            // println!("op detail {:?}",op);
+            let mut result = each_op!(op, [Const, Pad, Dummy, Source]);
+            let t = result.iter_mut().find_map(|s| std::mem::take(s));
+            if let Some(x) = t {
+                x
+            } else {
+                // elementwise
+                let mut ele = node.op_as::<ElementWiseOp>();
+                let inner = std::mem::take(&mut ele);
+                let inner_ref = inner.unwrap().0.as_ref();
+                let mut ele_map = each_ele_op!(inner_ref, [Sigmoid]);
+                ele_map.iter_mut().find_map(|s| std::mem::take(s)).unwrap()
+            }
+        }
     }
     pub fn gen_back_total(
         &self,
@@ -388,150 +492,81 @@ impl LatexEngine {
         }
     }
 
-    // fn rec_node(&self, node: &InferenceNode, model: &InferenceModel) -> String {
-    //     let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
+    fn rec_node(&self, node: &InferenceNode, model: &InferenceModel) -> String {
+        let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
 
-    //     if input_ids.len() == 0 {
-    //         return self.symbol_map[node.id].as_ref().unwrap().symbol.clone();
-    //     }
+        if input_ids.len() == 0 {
+            return self.symbol_map[node.id].as_ref().unwrap().symbol.clone();
+        }
 
-    //     let ins = input_ids.iter().fold(Vec::new(), |mut acc, x| {
-    //         let i_node = model.node(*x);
-    //         acc.push(self.rec_node(i_node, model));
-    //         acc
-    //     });
-    //     let n = node.id;
-    //     let n_name = node.op().name();
+        let ins = input_ids.iter().fold(Vec::new(), |mut acc, x| {
+            let i_node = model.node(*x);
+            acc.push(self.rec_node(i_node, model));
+            acc
+        });
+        let n = node.id;
+        let n_name = node.op().name();
 
-    //     if let Some((_, _, f)) = self.symbol_library.get_symbol(n_name.borrow()) {
-    //         self.raw_parse_symbol(f.formul, n, ins)
-    //     } else {
-    //         "".to_string()
-    //     }
-    // }
-    fn create_new_symbol(
-        &mut self,
-        symbol: String,
-        which: FormulKind,
-        extra_type: Option<String>,
-    ) -> String {
-        match which {
+        let node_op = Self::boxed_mathgen(node);
+
+        node_op.gen_forward_value(ins)
+    }
+    fn countup(&mut self, kind: &FormulKind) -> Option<usize> {
+        match kind {
             FormulKind::Activation => {
                 self.activation_count += 1;
-                format!("{}_{}", symbol, self.activation_count - 1)
+                Some(self.activation_count)
             }
             FormulKind::Function => {
                 self.formul_count += 1;
-                format!("{}_{}", symbol, self.formul_count - 1)
+                Some(self.formul_count)
             }
-            FormulKind::Base => {
-                let sharp_split: Vec<&str> = symbol.split("#").collect();
-                if let Some(x) = extra_type {
-                    let tt = match x.as_ref() {
-                        "bias" => {
-                            self.bias_count += 1;
-                            self.bias_count
-                        }
-                        "weight" => {
-                            self.weight_count += 1;
-                            self.weight_count
-                        }
-                        _ => 1,
-                    };
-                    let splits = symbol_split(symbol.as_str()).unwrap();
-                    insert_symbol_parts(splits, vec![tt.to_string()], Vec::new(), "".to_owned())
-                } else {
-                    format!("{}", sharp_split[0])
-                }
+            FormulKind::Bias => {
+                self.bias_count += 1;
+                Some(self.bias_count)
             }
-            _ => "".to_owned(),
+            FormulKind::Weight => {
+                self.weight_count += 1;
+                Some(self.weight_count)
+            }
+            _ => None,
         }
     }
     pub fn configure_node(&mut self, node: &InferenceNode, index: usize) -> Option<FormulKind> {
         if self.symbol_map[index].is_some() {
             return None;
         }
+        self.symbol_map[index] = Some(LatexNode::default());
+        println!("node {}", index);
         let n_name = node.name.clone();
+
+        let node_op = Self::boxed_mathgen(node);
+        let op_name = node.op().name().to_string();
         let n_name_split: Vec<&str> = n_name.split(".").collect();
-        let node_op = node.op_as::<Box<dyn Expansion>>().unwrap();
-        // println!("node id: {}",node.id);
-        let mut fkind = FormulKind::Not;
-        
-        
-        // let debug_op = format!("{:?}", node.op());
-        // self.symbol_map[index] = Some(LatexNode::default());
-        // let (symbol, forward_prefix, backward_prefix) = if let Some((symbol, n_type, form)) =
-        //     self.symbol_library.get_symbol(op_name.borrow())
-        // {
-        //     fkind = n_type.clone();
-        //     (
-        //         self.create_new_symbol(symbol.clone(), n_type, None),
-        //         form.formul,
-        //         form.diff.unwrap_or("".to_string()),
-        //     )
-        // } else {
-        //     let temp = op_name.to_owned() + "." + n_name_split[1];
-        //     if let Some((symbol, n_type, form)) = self.symbol_library.get_symbol(temp.borrow()) {
-        //         fkind = n_type.clone();
-        //         (
-        //             self.create_new_symbol(
-        //                 symbol.clone(),
-        //                 n_type,
-        //                 Some(n_name_split[1].to_string()),
-        //             ),
-        //             form.formul,
-        //             form.diff.unwrap_or("".to_string()),
-        //         )
-        //     } else {
-        //         ("".to_owned(), "".to_owned(), "".to_owned())
-        //     }
-        // };
-        
+        let inner = n_name_split.get(1).map(|s| s.to_string());
+
+        let extra_symbol = match node_op.get_symbol_type(inner.clone()) {
+            FormulKind::Undefined => Some(op_name.clone()),
+            _ => inner.clone(),
+        };
+        // println!("option {:?}",extra_symbol);
+
+        let kind = node_op.get_symbol_type(extra_symbol.clone());
+
+        let i = self.countup(&kind).unwrap_or(0);
+        let symbol = node_op.gen_forward(extra_symbol, i);
         if let Some(nn) = self.symbol_map[index].as_mut() {
-            nn.op_name = node_op.name().to_string();
-            nn.symbol = node_op.gen_forward(1);
+            nn.op_name = n_name;
+            nn.index = index;
+            nn.symbol = symbol;
             if node.outputs.len() != 0 && node.outputs[0].successors.len() != 0 {
                 for i in node.outputs[0].successors.iter() {
                     nn.outputs.push(i.node);
                 }
             }
         }
-        Some(fkind)
+        Some(kind)
     }
-     
-
-    //  # input,$ self, @: attribute
-    // fn raw_parse_symbol(&self, original: String, origin: usize, inputs: Vec<String>) -> String {
-    //     let sym_node = self.symbol_map[origin].as_ref().unwrap();
-
-    //     let splits = symbol_split(original.as_str()).unwrap();
-
-    //     let attributes: Vec<String> = match sym_node.op_attributes {
-    //         DebugValue::Tuple(ref v) => v.iter().map(|s| s.shallow_to_string()).collect(),
-    //         DebugValue::Object(ref v) => v.iter().map(|(_, a)| a.shallow_to_string()).collect(),
-    //         _ => Vec::new(),
-    //     };
-    //     let s_name = self.symbol_map[origin].as_ref().unwrap().symbol.clone();
-
-    //     let parsing_result = insert_symbol_parts(splits, inputs, attributes, s_name);
-
-    //     parsing_result
-    // }
-
-    // fn parse_symbol(&self, original: String, origin: usize, inputs: Vec<usize>) -> String {
-    //     let to_insert: Vec<String> = inputs
-    //         .iter()
-    //         .map(|x| {
-    //             if let Some(ref i) = self.symbol_map[*x] {
-    //                 i.symbol.as_str()
-    //             } else {
-    //                 ""
-    //             }
-    //         })
-    //         .map(|x| x.to_owned())
-    //         .collect();
-    //     self.raw_parse_symbol(original, origin, to_insert)
-    // }
     pub fn expand_diff_symbol(
         &self,
         symbol_map: &Vec<Option<LatexNode>>,
@@ -843,6 +878,7 @@ impl LatexEngine {
 pub struct LatexResult {
     pub symbol_map: Vec<Option<LatexNode>>,
     pub senario: Vec<usize>,
+    pub original_data: ModelProto,
 }
 
 impl LatexResult {
@@ -851,6 +887,7 @@ impl LatexResult {
         LatexResult {
             symbol_map: input.clone(),
             senario: Vec::new(),
+            original_data: ModelProto::default(),
         }
     }
     pub fn get_node_formul(&self, i: usize) -> String {
