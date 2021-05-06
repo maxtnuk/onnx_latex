@@ -31,7 +31,14 @@ impl MathGen for Gemm {
         FormulKind::Function
     }
     fn gen_forward_value(&self, inputs: Vec<String>) -> String {
-        format!(r#"{}\cdot {}+{}"#, inputs[0], inputs[1], inputs[2])
+        let f = |s: f32| {
+            match s{
+                -1.0 => "-".to_string(),
+                1.0 => "".to_string(),
+                x@_ => x.to_string()
+            }
+        };
+        format!(r#"{a1}\times {}\cdot {}+{a2}\times {}"#, inputs[0], inputs[1], inputs[2],a1=f(self.alpha),a2=f(self.beta))
     }
 }
 
