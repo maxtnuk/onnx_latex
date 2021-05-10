@@ -95,8 +95,8 @@ impl MathGen for Box<dyn Expansion> {
         self.as_ref().gen_forward(extra_symbol, idx)
     }
 
-    fn gen_forward_value(&self, inputs: Vec<String>) -> String {
-        self.as_ref().gen_forward_value(inputs)
+    fn gen_forward_value(&self, inputs: Vec<String>,input_shape: Option<Vec<usize>>,output_shape: Option<Vec<usize>>) -> String {
+        self.as_ref().gen_forward_value(inputs,input_shape,output_shape)
     }
 
     fn gen_backward(&self, upper: String, under: String) -> String {

@@ -52,7 +52,7 @@ impl MathGen for Clip {
     fn get_original_type(&self) -> FormulKind {
         FormulKind::Activation
     }
-    fn gen_forward_value(&self, inputs: Vec<String>) -> String {
+    fn gen_forward_value(&self, inputs: Vec<String>,input_shape: Option<Vec<usize>>,output_shape: Option<Vec<usize>>) -> String {
         let i1 = self.0.map(|s| s.to_string()).unwrap_or("-∞".to_string());
         let i2 = self.1.map(|s| s.to_string()).unwrap_or("∞".to_string());
         format!(r#"min(max({},{}),{})"#, inputs[0], i1, i2)
@@ -154,7 +154,7 @@ impl MathGen for HardSigmoid {
     fn get_original_type(&self) -> FormulKind {
         FormulKind::Activation
     }
-    fn gen_forward_value(&self, inputs: Vec<String>) -> String {
+    fn gen_forward_value(&self, inputs: Vec<String>,input_shape: Option<Vec<usize>>,output_shape: Option<Vec<usize>>) -> String {
         format!(r#"\frac{{1}}{{1+e^{{-({})}}}}"#, inputs[0])
     }
 }

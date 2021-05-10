@@ -44,7 +44,7 @@ pub trait MathGen {
         let kind = self.get_symbol_type(extra_symbol.clone());
         gen_symbol(extra_symbol, kind, idx)
     }
-    fn gen_forward_value(&self, inputs: Vec<String>) -> String {
+    fn gen_forward_value(&self, inputs: Vec<String>,input_shape: Option<Vec<usize>>,output_shape: Option<Vec<usize>>) -> String {
         "".to_string()
     }
     fn gen_backward(&self, upper: String, under: String) -> String {
@@ -107,6 +107,9 @@ pub fn gen_symbol(symbol: Option<String>, n_type: FormulKind, idx: usize) -> Str
         FormulKind::Input => {
             format!(r#"\overline{{Input}}"#)
         }
+        FormulKind::Cnn => {
+            format!(r#"Cnn_{}"#,idx)
+        }
         _ => {
             if let Some(s) = symbol {
                 format!("{}_{}", s, idx)
@@ -152,7 +155,7 @@ impl MathGen for Sigmoid {
     fn get_original_type(&self) -> FormulKind {
         FormulKind::Activation
     }
-    fn gen_forward_value(&self, inputs: Vec<String>) -> String {
+    fn gen_forward_value(&self, inputs: Vec<String>,input_shape: Option<Vec<usize>>,output_shape: Option<Vec<usize>>) -> String {
         format!(r#"\frac{{1}}{{1+e^{{-({})}}}}"#, inputs[0])
     }
 }

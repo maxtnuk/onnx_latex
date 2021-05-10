@@ -52,9 +52,10 @@ pub struct LatexNode {
     pub outputs: Vec<usize>,
     pub symbol: String,
     pub extra_symbol: Option<String>,
-    pub value: String,
+    pub forward_value: String,
     pub op_name: String,
-    pub shape: Vec<usize>,
+    pub input_shape_ref: Option<Vec<usize>>,
+    pub output_shape: Vec<usize>,
     pub backward_value: String,
     pub backward_symbol: String,
     pub op_attributes: DebugValue,
@@ -64,7 +65,7 @@ impl LatexNode {
     pub fn erase_slash(&mut self) {
         let r = |s: &String| -> String { s.replace(r#"\\"#, r#"\"#) };
         self.symbol = r(&self.symbol);
-        self.value = r(&self.value);
+        self.forward_value = r(&self.forward_value);
         self.backward_symbol = r(&self.backward_symbol);
         self.backward_value = r(&self.backward_value);
     }
@@ -334,10 +335,25 @@ impl LatexEngine {
             let node_kind = self.configure_node(node, *n);
             // println!("node_kind {:?}",node_kind);
             let node_op = Self::boxed_mathgen(node);
+            let mut candidate:Option<usize> = None;
+            // input part
+            let mut inputs: TVec<Arc<Tensor>> = tvec![];
+            let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
 
             if let Some(fk) = node_kind {
                 match fk {
                     FormulKind::Activation | FormulKind::Function | FormulKind::Cnn => {
+                        match fk {
+                            FormulKind::Function => {
+                                
+                            },
+                            FormulKind::Cnn => { 
+                                candidate=Some(input_ids[0]);
+                            }
+                            _ =>{
+
+                            }
+                        }
                         senario.push(*n);
                     }
                     _ => {}
@@ -346,14 +362,13 @@ impl LatexEngine {
 
             // let op_name = node.op().name();
 
-            // input part
-            let mut inputs: TVec<Arc<Tensor>> = tvec![];
-            let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
+            
+           
             for i in input_ids.iter() {
                 let undefined_node = model.node(*i);
-                self.configure_node(undefined_node, *i);
+                let inner=self.configure_node(undefined_node, *i);
             }
-
+            let mut input_shape_option:Option<Vec<usize>>= None;
             for i in &node.inputs {
                 let prec_node = model.node(i.node);
                 let prec = values[i.node].as_ref().ok_or_else(|| "error").unwrap();
@@ -364,12 +379,35 @@ impl LatexEngine {
                     .dims()
                     .map(|s| format!("{}", s).as_str().parse().unwrap())
                     .collect();
+                
                 if let Some(l) = self.symbol_map[i.node].as_mut() {
-                    if l.shape.len() == 0 {
-                        l.shape = input_shape;
+                    if let Some(x) = candidate{
+                        if x==i.node{
+                            if l.output_shape.len() >0 {
+                                input_shape_option = Some(l.output_shape.clone());
+                            }else{
+                                input_shape_option=Some(input_shape.clone());
+                            }
+                        }     
+                    }
+                    if l.output_shape.len() == 0 {
+                        l.output_shape = input_shape;
                     }
                 }
                 inputs.push(prec[i.slot].clone().into())
+            }
+            let vs = eval(
+                session_state,
+                states[node.id].as_mut().map(|s| &mut **s),
+                node,
+                inputs,
+            )
+            .unwrap();
+            values[node.id] = Some(vs.clone());
+            let output_shape:Vec<usize>= vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
+            if let Some(form) = self.symbol_map[*n].as_mut() {
+                form.output_shape = output_shape.clone();
+                form.input_shape_ref= input_shape_option.clone();
             }
 
             // println!("opname {}",op_name);
@@ -379,25 +417,16 @@ impl LatexEngine {
                         .iter()
                         .map(|s| self.symbol_map[*s].as_ref().unwrap().symbol.clone())
                         .collect();
-                    node_op.gen_forward_value(input_symbols)
+                    node_op.gen_forward_value(input_symbols,input_shape_option,Some(output_shape.clone()))
                 }
                 ParseMode::Full => self.rec_node(node, model),
             };
             // node formul
 
-            let vs = eval(
-                session_state,
-                states[node.id].as_mut().map(|s| &mut **s),
-                node,
-                inputs,
-            )
-            .unwrap();
-            values[node.id] = Some(vs.clone());
-
+           
             if let Some(form) = self.symbol_map[*n].as_mut() {
                 form.inputs = input_ids.clone();
-                form.value = forward_string;
-                form.shape = vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
+                form.forward_value = forward_string;
             }
         }
 
@@ -477,7 +506,7 @@ impl LatexEngine {
 
         let (symbol, shape) = symbol_result.symbol_map[index]
             .as_ref()
-            .map(|s| (s.symbol.clone(), s.shape.clone()))
+            .map(|s| (s.symbol.clone(), s.output_shape.clone()))
             .ok_or(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "not found index",
@@ -523,9 +552,9 @@ impl LatexEngine {
   
     fn rec_node(&self, node: &InferenceNode, model: &InferenceModel) -> String {
         let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
-
+        let sym_node =self.symbol_map[node.id].as_ref().unwrap();
         if input_ids.len() == 0 {
-            return self.symbol_map[node.id].as_ref().unwrap().symbol.clone();
+            return sym_node.symbol.clone();
         }
 
         let ins = input_ids.iter().fold(Vec::new(), |mut acc, x| {
@@ -537,8 +566,9 @@ impl LatexEngine {
         let n_name = node.op().name();
 
         let node_op = Self::boxed_mathgen(node);
-
-        node_op.gen_forward_value(ins)
+        let output_shape=sym_node.output_shape.clone();
+        let input_shape= sym_node.input_shape_ref.clone();
+        node_op.gen_forward_value(ins,input_shape,Some(output_shape))
     }
     fn countup(&mut self, kind: &FormulKind) -> Option<usize> {
         match kind {
@@ -546,7 +576,7 @@ impl LatexEngine {
                 self.activation_count += 1;
                 Some(self.activation_count)
             }
-            FormulKind::Function => {
+            FormulKind::Function | FormulKind::Cnn=> {
                 self.formul_count += 1;
                 Some(self.formul_count)
             }
@@ -631,10 +661,10 @@ impl LatexEngine {
                                 DiffChainNode::Weightable(into_node_id, in_node.symbol.clone()),
                                 error_node,
                             );
-                            let size_check = if in_node.shape.len() > 1 {
-                                in_node.shape[1]
+                            let size_check = if in_node.output_shape.len() > 1 {
+                                in_node.output_shape[1]
                             } else {
-                                in_node.shape[0]
+                                in_node.output_shape[0]
                             };
                             sum_it.push(DiffChainNode::Sum(Box::new(sum), size_check));
                             sum_it.append(&mut v_clone);
@@ -901,7 +931,7 @@ impl LatexResult {
     }
     pub fn get_node_formul(&self, i: usize) -> String {
         if let Some(ref x) = self.symbol_map[i] {
-            x.symbol.clone() + "=" + x.value.as_str()
+            x.symbol.clone() + "=" + x.forward_value.as_str()
         } else {
             "".to_owned()
         }

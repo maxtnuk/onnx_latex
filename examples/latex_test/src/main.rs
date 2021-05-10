@@ -38,7 +38,7 @@ fn test_part<F: AsRef<Path>>(path: F) -> TractResult<()> {
         println!("message: {:?}", parse_result.err());
     }
     for n in result.symbol_map.iter() {
-        println!("forward: {}", n.clone().unwrap().value);
+        println!("forward: {}", n.clone().unwrap().forward_value);
     }
     // println!("{}", result.gen_json());
 
@@ -100,8 +100,18 @@ fn test_three_layer() -> TractResult<()> {
 }
 
 #[test]
-fn test_three_layer_file() -> TractResult<()> {
-    Ok(())
+fn test_cnn() -> TractResult<()> {
+    test_part("test_models/lcnn.onnx")
+}
+
+#[test]
+fn test_cnn_info() -> TractResult<()> {
+    latex_gen::model_info("test_models/lcnn.onnx")
+}
+
+#[test]
+fn test_vgg_info() -> TractResult<()> {
+    latex_gen::model_info("test_models/lvgg.onnx")
 }
 
 #[test]
