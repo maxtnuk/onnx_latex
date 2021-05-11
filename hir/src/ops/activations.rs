@@ -1,7 +1,4 @@
-use crate::{
-    internal::*,
-    utils::{self, MathGen},
-};
+use crate::{internal::*, utils::MathGen};
 use tract_core::ops::math::*;
 
 macro_rules! activation {
@@ -55,8 +52,8 @@ impl MathGen for Clip {
     fn gen_forward_value(
         &self,
         inputs: Vec<String>,
-        input_shape: Option<Vec<usize>>,
-        output_shape: Option<Vec<usize>>,
+        _input_shape: Option<Vec<usize>>,
+        _output_shape: Option<Vec<usize>>,
     ) -> String {
         let i1 = self.0.map(|s| s.to_string()).unwrap_or("-∞".to_string());
         let i2 = self.1.map(|s| s.to_string()).unwrap_or("∞".to_string());
@@ -162,8 +159,8 @@ impl MathGen for HardSigmoid {
     fn gen_forward_value(
         &self,
         inputs: Vec<String>,
-        input_shape: Option<Vec<usize>>,
-        output_shape: Option<Vec<usize>>,
+        _input_shape: Option<Vec<usize>>,
+        _output_shape: Option<Vec<usize>>,
     ) -> String {
         format!(r#"\frac{{1}}{{1+e^{{-({})}}}}"#, inputs[0])
     }

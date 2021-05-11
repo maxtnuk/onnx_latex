@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::{BufReader, Read, Write},
-    path::Path,
-};
+use std::{fs::File, io::Write, path::Path};
 
 use latex_gen::{LatexEngine, TractResult};
 // trait Trait {
@@ -27,7 +23,7 @@ fn main() -> TractResult<()> {
 fn test_part<F: AsRef<Path>>(path: F) -> TractResult<()> {
     let mut engine = LatexEngine::new();
 
-    let mut result = engine.parse_from_path(path)?;
+    let result = engine.parse_from_path(path)?;
     println!("{:?}", result.senario);
     // let parse_result = engine.gen_back_total(&mut result, (9, 4), Some(1));
     // if parse_result.is_ok() {
@@ -48,7 +44,7 @@ fn test_part<F: AsRef<Path>>(path: F) -> TractResult<()> {
     Ok(())
 }
 
-fn test_info<F: AsRef<Path>>(path: F) -> TractResult<()> {
+fn test_info<F: AsRef<Path>>(_path: F) -> TractResult<()> {
     // let model = tract_onnx::onnx()
     //     // load the model
     //     .model_for_path(path)?

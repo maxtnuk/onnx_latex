@@ -23,7 +23,6 @@ use tract_core::{
 use crate::ops::{
     array::{ConstantLike, EyeLike},
     binary::Nary,
-    expandable::Expansion,
 };
 
 pub trait MathGen {
@@ -46,16 +45,16 @@ pub trait MathGen {
     }
     fn gen_forward_value(
         &self,
-        inputs: Vec<String>,
-        input_shape: Option<Vec<usize>>,
-        output_shape: Option<Vec<usize>>,
+        _inputs: Vec<String>,
+        _input_shape: Option<Vec<usize>>,
+        _output_shape: Option<Vec<usize>>,
     ) -> String {
         "".to_string()
     }
     fn gen_backward(&self, upper: String, under: String) -> String {
         format!(r#"\frac{{\partial {}}}{{\partial {}}}"#, upper, under)
     }
-    fn gen_backward_value(&self, inputs: Vec<String>) -> Option<String> {
+    fn gen_backward_value(&self, _inputs: Vec<String>) -> Option<String> {
         None
     }
     fn attributes(&self) -> HashMap<String, String> {
@@ -158,8 +157,8 @@ impl MathGen for SumPool {
     fn gen_forward_value(
         &self,
         inputs: Vec<String>,
-        input_shape: Option<Vec<usize>>,
-        output_shape: Option<Vec<usize>>,
+        _input_shape: Option<Vec<usize>>,
+        _output_shape: Option<Vec<usize>>,
     ) -> String {
         format!(r#"\sum {}"#, inputs[0])
     }
@@ -172,11 +171,11 @@ impl MathGen for MaxPool {
     fn gen_forward_value(
         &self,
         inputs: Vec<String>,
-        input_shape: Option<Vec<usize>>,
-        output_shape: Option<Vec<usize>>,
+        _input_shape: Option<Vec<usize>>,
+        _output_shape: Option<Vec<usize>>,
     ) -> String {
         let pool_stride = self.pool_spec.strides.clone();
-        let (s0, s1) = if let Some(x) = pool_stride {
+        let (_s0, s1) = if let Some(x) = pool_stride {
             let i: Vec<usize> = x.iter().map(|s| *s).collect();
             (i[0], i[1])
         } else {
@@ -206,8 +205,8 @@ impl MathGen for Sigmoid {
     fn gen_forward_value(
         &self,
         inputs: Vec<String>,
-        input_shape: Option<Vec<usize>>,
-        output_shape: Option<Vec<usize>>,
+        _input_shape: Option<Vec<usize>>,
+        _output_shape: Option<Vec<usize>>,
     ) -> String {
         format!(r#"\frac{{1}}{{1+e^{{-({})}}}}"#, inputs[0])
     }

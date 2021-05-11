@@ -33,8 +33,8 @@ impl MathGen for Gemm {
     fn gen_forward_value(
         &self,
         inputs: Vec<String>,
-        input_shape: Option<Vec<usize>>,
-        output_shape: Option<Vec<usize>>,
+        _input_shape: Option<Vec<usize>>,
+        _output_shape: Option<Vec<usize>>,
     ) -> String {
         let f = |s: f32| match s {
             -1.0 => "-".to_string(),

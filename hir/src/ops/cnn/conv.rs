@@ -145,10 +145,10 @@ impl MathGen for Conv {
         &self,
         inputs: Vec<String>,
         input_shape: Option<Vec<usize>>,
-        output_shape: Option<Vec<usize>>,
+        _output_shape: Option<Vec<usize>>,
     ) -> String {
         let inner = input_shape.unwrap();
-        let (c, h, w) = match self.data_format {
+        let (c, _h, _w) = match self.data_format {
             DataFormat::NCHW => (inner[1], inner[2], inner[3]),
             DataFormat::NHWC => (inner[3], inner[1], inner[2]),
             DataFormat::CHW => (inner[0], inner[1], inner[2]),

@@ -5,14 +5,10 @@ use actix_web::{
     http::{header, StatusCode},
     post, web, App, Error, HttpResponse, HttpServer, Responder,
 };
-use futures::{StreamExt, TryStreamExt};
 
 use derive_more::{Display, Error};
-use latex_gen::{LatexEngine, LatexResult};
-use std::{
-    io::{Cursor, Read, Seek, SeekFrom, Write},
-    usize,
-};
+use latex_gen::LatexResult;
+use std::{io::Write, usize};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -53,33 +49,33 @@ impl error::ResponseError for MyError {
 }
 
 #[post("/parse_model")]
-async fn parse_file(mut payload: Multipart) -> Result<HttpResponse, Error> {
+async fn parse_file(_payload: Multipart) -> Result<HttpResponse, Error> {
     // iterate over multipart stream
     //  only one file
-    let mut field = payload.try_next().await?.ok_or(MyError::BadClientData)?;
+    // let mut field = payload.try_next().await?.ok_or(MyError::BadClientData)?;
 
-    let content_type = field.content_disposition().unwrap();
-    let mut f = Cursor::new(Vec::new());
-    // let mut f = web::block(|| std::fs::File::create(tmp).map_err(|_| MyError::NewFile)).await?;
-    // Field in turn is stream of *Bytes* object
-    while let Some(chunk) = field.next().await {
-        let data = chunk.unwrap();
-        // println!("byte chunk {}",data.len());
-        // filesystem operations are blocking, we have to use threadpool
-        f = web::block(move || f.write_all(&data).map(|_| f)).await?;
-    }
-    // println!("file size {}", f.metadata().unwrap().len());
+    // let content_type = field.content_disposition().unwrap();
+    // let mut f = Cursor::new(Vec::new());
+    // // let mut f = web::block(|| std::fs::File::create(tmp).map_err(|_| MyError::NewFile)).await?;
+    // // Field in turn is stream of *Bytes* object
+    // while let Some(chunk) = field.next().await {
+    //     let data = chunk.unwrap();
+    //     // println!("byte chunk {}",data.len());
+    //     // filesystem operations are blocking, we have to use threadpool
+    //     f = web::block(move || f.write_all(&data).map(|_| f)).await?;
+    // }
+    // // println!("file size {}", f.metadata().unwrap().len());
 
-    // parse section
-    f.seek(SeekFrom::Start(0)).unwrap();
+    // // parse section
+    // f.seek(SeekFrom::Start(0)).unwrap();
 
-    let mut engine = LatexEngine::new();
+    // let mut engine = LatexEngine::new();
 
-    let mut result = engine
-        .parse_from_file(&mut f)
-        .map_err(|e| MyError::ParseError)?;
+    // let mut result = engine
+    //     .parse_from_file(&mut f)
+    //     .map_err(|e| MyError::ParseError)?;
     // result.erase_slash();
-    Ok(HttpResponse::Ok().json(result))
+    Ok(HttpResponse::Ok().json(()))
 }
 
 #[derive(Deserialize)]
@@ -101,31 +97,31 @@ struct BackwardAnswer {
 
 #[post("/backward")]
 async fn backward(
-    web::Query(info): web::Query<BackwardParam>,
-    req_body: web::Json<LatexResult>,
+    web::Query(_info): web::Query<BackwardParam>,
+    _req_body: web::Json<LatexResult>,
 ) -> Result<HttpResponse, Error> {
-    let engine = LatexEngine::new();
-    let lr = req_body.into_inner();
-    let last_point = lr.senario.last().cloned().unwrap();
+    //     let engine = LatexEngine::new();
+    //     let lr = req_body.into_inner();
+    //     let last_point = lr.senario.last().cloned().unwrap();
 
-    let (s, v) = engine
-        .gen_each_back(
-            &lr,
-            (info.layer_node, last_point),
-            (info.layer_idx, info.weight_idx),
-            info.depth,
-        )
-        .map_err(|x| MyError::ParseError)?;
-    // let r = |s: &String| ->String{s.replace(r#"\\"#,r#"\"#)};
+    //     let (s, v) = engine
+    //         .gen_each_back(
+    //             &lr,
+    //             (info.layer_node, last_point),
+    //             (info.layer_idx, info.weight_idx),
+    //             info.depth,
+    //         )
+    //         .map_err(|x| MyError::ParseError)?;
+    //     // let r = |s: &String| ->String{s.replace(r#"\\"#,r#"\"#)};
 
-    let result = BackwardAnswer {
-        node: info.layer_node,
-        layer_idx: info.layer_idx,
-        weight_idx: info.weight_idx,
-        symbol: s,
-        value: v,
-    };
-    Ok(HttpResponse::Ok().json(result))
+    //     let result = BackwardAnswer {
+    //         node: info.layer_node,
+    //         layer_idx: info.layer_idx,
+    //         weight_idx: info.weight_idx,
+    //         symbol: s,
+    //         value: v,
+    //     };
+    Ok(HttpResponse::Ok().json(()))
 }
 
 #[get("/")]

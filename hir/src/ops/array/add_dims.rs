@@ -1,5 +1,3 @@
-use std::ops::Add;
-
 use crate::infer::*;
 use crate::internal::*;
 use tract_itertools::Itertools;
