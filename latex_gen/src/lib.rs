@@ -13,11 +13,12 @@ use tract_onnx::{
         },
         utils::{is_weightable, mathgen_ele_op, FormulKind, MathGen},
     },
+    Onnx,
 };
 
 use rand::prelude::*;
-use std::fmt::Debug;
 use std::hash::Hash;
+use std::{fmt::Debug, io::ErrorKind};
 use std::{fmt::Display, io::Read, path::Path};
 use tract_onnx::tract_hir::utils::mathgen_op;
 use tract_onnx::{prelude::*, tract_hir::infer::InferenceOp};
@@ -175,6 +176,7 @@ pub enum DiffChainNode {
 
 #[derive(Default, Clone)]
 pub struct LatexEngine {
+    pub engine: Onnx,
     pub symbol_map: Vec<Option<LatexNode>>,
     pub weight_count: usize,
     pub bias_count: usize,
@@ -212,10 +214,31 @@ macro_rules! each_ele_op {
     };
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct ParseModelResult {
+    model: ModelProto,
+    symbol: LatexResult,
+}
+impl ParseModelResult {
+    pub fn new(model_proto: ModelProto, symbol: LatexResult) -> Self {
+        ParseModelResult {
+            model: model_proto,
+            symbol: symbol,
+        }
+    }
+    pub fn json(&self) -> String {
+        serde_json::to_string(&self).unwrap()
+    }
+}
+
 pub fn parse_proto<P: AsRef<Path>>(path: P) -> TractResult<String> {
     let proto_file = tract_onnx::onnx().proto_model_for_path(path)?;
     let ss = serde_json::to_string(&proto_file).unwrap();
     Ok(ss)
+}
+pub fn parse_proto_from_file(reader: &mut dyn Read) -> TractResult<ModelProto> {
+    let proto_file = tract_onnx::onnx().proto_model_for_read(reader)?;
+    Ok(proto_file)
 }
 pub fn into_proto(input: String) -> TractResult<()> {
     let ss = serde_json::from_str::<ModelProto>(input.as_str()).unwrap();
@@ -265,6 +288,7 @@ impl LatexEngine {
         let symbol_lib = SymbolLibrary::new();
 
         LatexEngine {
+            engine: tract_onnx::onnx(),
             symbol_map: Vec::new(),
             weight_count: 0,
             bias_count: 0,
@@ -274,6 +298,10 @@ impl LatexEngine {
             symbol_library: symbol_lib,
         }
     }
+    pub fn model_from_file(&self, reader: &mut dyn Read) -> TractResult<InferenceModel> {
+        let s = self.engine.model_for_read(reader)?.into_runnable()?;
+        Ok(s.model().clone())
+    }
     fn flush(&mut self) {
         self.symbol_map = Vec::new();
         self.weight_count = 0;
@@ -282,20 +310,12 @@ impl LatexEngine {
         self.activation_count = 0;
     }
     pub fn parse_from_path<P: AsRef<Path>>(&mut self, path: P) -> TractResult<LatexResult> {
-        let orginal = tract_onnx::onnx().proto_model_for_path(path.as_ref())?;
-        let plan = tract_onnx::onnx().model_for_path(path)?.into_runnable()?;
-        self.start_parse(&plan).map(|mut s| {
-            s.original_data = orginal;
-            s
-        })
+        let plan = self.engine.model_for_path(path)?.into_runnable()?;
+        self.start_parse(&plan)
     }
     pub fn parse_from_file(&mut self, file: &mut dyn Read) -> TractResult<LatexResult> {
-        let orginal = tract_onnx::onnx().proto_model_for_read(file)?;
-        let plan = tract_onnx::onnx().model_for_read(file)?.into_runnable()?;
-        self.start_parse(&plan).map(|mut s| {
-            s.original_data = orginal;
-            s
-        })
+        let plan = self.engine.model_for_read(file)?.into_runnable()?;
+        self.start_parse(&plan)
     }
 
     fn start_parse(&mut self, plan: &InferencePlan) -> TractResult<LatexResult> {
@@ -473,13 +493,14 @@ impl LatexEngine {
     pub fn gen_back_total(
         &self,
         symbol_result: &mut LatexResult,
+        model_proto: &ModelProto,
         which: (usize, usize),
         depth: Option<usize>,
     ) -> Result<(), std::io::Error> {
         let senario = symbol_result.senario.clone();
         let last_point = senario.last().unwrap();
         let model = tract_onnx::onnx()
-            .model_for_proto_model(&symbol_result.original_data)
+            .model_for_proto_model(&model_proto)
             .unwrap();
 
         for i in senario.iter() {
@@ -938,7 +959,6 @@ impl LatexEngine {
 pub struct LatexResult {
     pub symbol_map: Vec<Option<LatexNode>>,
     pub senario: Vec<usize>,
-    pub original_data: ModelProto,
 }
 
 impl LatexResult {
@@ -947,7 +967,6 @@ impl LatexResult {
         LatexResult {
             symbol_map: input.clone(),
             senario: Vec::new(),
-            original_data: ModelProto::default(),
         }
     }
     pub fn get_node_formul(&self, i: usize) -> String {
@@ -977,6 +996,10 @@ impl LatexResult {
                 r.erase_slash();
             }
         }
+    }
+    pub fn from_reader(reader: &mut dyn Read) -> Result<Self, std::io::Error> {
+        serde_json::from_reader(reader)
+            .map_err(|e| std::io::Error::new(ErrorKind::InvalidInput, format!("{:?}", e)))
     }
 }
 

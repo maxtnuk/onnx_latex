@@ -7,11 +7,17 @@ use actix_web::{
 };
 
 use derive_more::{Display, Error};
-use latex_gen::LatexResult;
-use std::{io::Write, usize};
+use latex_gen::{LatexEngine, LatexResult};
+use std::{
+    collections::HashMap,
+    io::{Cursor, Seek, SeekFrom, Write},
+    usize,
+};
 
 use serde::Deserialize;
 use serde::Serialize;
+
+use futures::{future::ok, stream::once, StreamExt, TryStreamExt};
 
 #[derive(Debug, Display, Error)]
 enum MyError {
@@ -47,35 +53,59 @@ impl error::ResponseError for MyError {
         }
     }
 }
+type OnFile = Cursor<Vec<u8>>;
+
+async fn mutlipart_filelist(payload: &mut Multipart) -> Result<HashMap<String, OnFile>, Error> {
+    let mut file_list = HashMap::new();
+
+    while let Ok(Some(mut field)) = payload.try_next().await {
+        let content_type = field.content_disposition().unwrap();
+        let filename = content_type.get_name().unwrap();
+
+        // File::create is blocking operation, use threadpool
+        let mut f = Cursor::new(Vec::new());
+
+        // Field in turn is stream of *Bytes* object
+        while let Some(chunk) = field.next().await {
+            let data = chunk.unwrap();
+            // filesystem operations are blocking, we have to use threadpool
+            f = web::block(move || f.write_all(&data).map(|_| f)).await?;
+        }
+        f.seek(SeekFrom::Start(0)).unwrap();
+        file_list.insert(filename.to_string(), f);
+    }
+    Ok(file_list)
+}
 
 #[post("/parse_model")]
-async fn parse_file(_payload: Multipart) -> Result<HttpResponse, Error> {
+async fn parse_file(mut payload: Multipart) -> Result<HttpResponse, Error> {
     // iterate over multipart stream
     //  only one file
-    // let mut field = payload.try_next().await?.ok_or(MyError::BadClientData)?;
+    let mut file_list = mutlipart_filelist(&mut payload).await?;
 
-    // let content_type = field.content_disposition().unwrap();
-    // let mut f = Cursor::new(Vec::new());
-    // // let mut f = web::block(|| std::fs::File::create(tmp).map_err(|_| MyError::NewFile)).await?;
-    // // Field in turn is stream of *Bytes* object
-    // while let Some(chunk) = field.next().await {
-    //     let data = chunk.unwrap();
-    //     // println!("byte chunk {}",data.len());
-    //     // filesystem operations are blocking, we have to use threadpool
-    //     f = web::block(move || f.write_all(&data).map(|_| f)).await?;
-    // }
-    // // println!("file size {}", f.metadata().unwrap().len());
+    let mut engine = LatexEngine::new();
 
-    // // parse section
-    // f.seek(SeekFrom::Start(0)).unwrap();
+    // println!("{:?}",file_list.keys().map(|s| s.to_string()).collect::<Vec<String>>());
 
-    // let mut engine = LatexEngine::new();
+    let model = file_list
+        .get_mut(&"model".to_string())
+        .ok_or(MyError::BadClientData)?;
 
-    // let mut result = engine
-    //     .parse_from_file(&mut f)
-    //     .map_err(|e| MyError::ParseError)?;
-    // result.erase_slash();
-    Ok(HttpResponse::Ok().json(()))
+    let result = engine
+        .parse_from_file(model)
+        .map_err(|_e| MyError::ParseError)?;
+
+    model.seek(SeekFrom::Start(0)).unwrap();
+
+    let original_proto =
+        latex_gen::parse_proto_from_file(model).map_err(|_e| MyError::InternalError)?;
+    let rr = latex_gen::ParseModelResult::new(original_proto, result);
+
+    let body = once(ok::<_, Error>(web::Bytes::copy_from_slice(
+        rr.json().as_bytes(),
+    )));
+
+    Ok(HttpResponse::Ok().streaming(body))
 }
 
 #[derive(Deserialize)]
@@ -97,31 +127,47 @@ struct BackwardAnswer {
 
 #[post("/backward")]
 async fn backward(
-    web::Query(_info): web::Query<BackwardParam>,
-    _req_body: web::Json<LatexResult>,
+    web::Query(info): web::Query<BackwardParam>,
+    mut payload: Multipart,
 ) -> Result<HttpResponse, Error> {
-    //     let engine = LatexEngine::new();
-    //     let lr = req_body.into_inner();
-    //     let last_point = lr.senario.last().cloned().unwrap();
+    let file_list = mutlipart_filelist(&mut payload).await?;
 
-    //     let (s, v) = engine
-    //         .gen_each_back(
-    //             &lr,
-    //             (info.layer_node, last_point),
-    //             (info.layer_idx, info.weight_idx),
-    //             info.depth,
-    //         )
-    //         .map_err(|x| MyError::ParseError)?;
-    //     // let r = |s: &String| ->String{s.replace(r#"\\"#,r#"\"#)};
+    let mut model_file = file_list
+        .get(&"model".to_string())
+        .ok_or(MyError::BadClientData)?
+        .clone();
+    let mut latex_map = file_list
+        .get(&"symbols".to_string())
+        .ok_or(MyError::BadClientData)?
+        .clone();
 
-    //     let result = BackwardAnswer {
-    //         node: info.layer_node,
-    //         layer_idx: info.layer_idx,
-    //         weight_idx: info.weight_idx,
-    //         symbol: s,
-    //         value: v,
-    //     };
-    Ok(HttpResponse::Ok().json(()))
+    let engine = LatexEngine::new();
+    let lr = LatexResult::from_reader(&mut latex_map).map_err(|_e| MyError::ParseError)?;
+
+    let model = engine
+        .model_from_file(&mut model_file)
+        .map_err(|_e| MyError::InternalError)?;
+
+    let last_point = lr.senario.last().cloned().unwrap();
+    let (s, v) = engine
+        .gen_each_back(
+            &model,
+            &lr,
+            (info.layer_node, last_point),
+            (info.layer_idx, info.weight_idx),
+            info.depth,
+        )
+        .map_err(|_x| MyError::ParseError)?;
+    // let r = |s: &String| ->String{s.replace(r#"\\"#,r#"\"#)};
+
+    let result = BackwardAnswer {
+        node: info.layer_node,
+        layer_idx: info.layer_idx,
+        weight_idx: info.weight_idx,
+        symbol: s,
+        value: v,
+    };
+    Ok(HttpResponse::Ok().json(result))
 }
 
 #[get("/")]
