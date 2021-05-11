@@ -1,3 +1,5 @@
 target/*
 Cargo.lock
 .vscode
+examples/latex_test/test_models/*
+.ipynb_checkpoints/*

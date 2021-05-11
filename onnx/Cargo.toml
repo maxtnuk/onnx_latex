@@ -1,0 +1,34 @@
+[package]
+name = "tract-onnx"
+version = "0.14.0"
+authors = ["Mathieu Poumeyrol <kali@zoy.org>"]
+license = "MIT/Apache-2.0"
+description = "Tiny, no-nonsense, self contained, TensorFlow and ONNX inference"
+repository = "https://github.com/snipsco/tract"
+keywords = [ "TensorFlow", "NeuralNetworks", "ONNX" ]
+categories = [ "science" ]
+autobenches = false
+edition = "2018"
+exclude = [ "test_cases" ]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+bytes = "1"
+derive-new = "0.5"
+educe = "0.4"
+log = "0.4"
+num-integer = "0.1"
+prost = "0.7"
+smallvec = "1"
+tract-hir = {path="../hir"}
+tract-nnef = "=0.14.0"
+tract-onnx-opl = "=0.14.0"
+serde = {version="1.0",features = ["derive"]}
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+mapr = "0.8"
+
+[build-dependencies]
+prost-build = "0.7"

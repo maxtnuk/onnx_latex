@@ -6,6 +6,7 @@ use std::{io::ErrorKind, path::Path};
 
 use ron::{de::from_reader, from_str};
 use serde::{Deserialize, Serialize};
+use tract_onnx::tract_hir::utils::FormulKind;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Formul {
@@ -46,13 +47,6 @@ impl Default for FormulNode {
         }
     }
 }
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-pub enum FormulKind {
-    Activation,
-    Function,
-    Base,
-    Not,
-}
 
 impl Formul {
     pub fn gen_symbol(&self, target: &str) -> Result<(String, FormulKind, FormulNode)> {
@@ -74,6 +68,6 @@ pub fn read_ron<P: AsRef<Path>>(path: P) -> Result<Formul> {
         from_reader(f).map_err(|e| Error::new(ErrorKind::InvalidInput, format!("{:?}", e)))?;
     Ok(result)
 }
-pub fn read_str(input: &str) -> Result<Formul>{
+pub fn read_str(input: &str) -> Result<Formul> {
     from_str::<Formul>(input).map_err(|e| Error::new(ErrorKind::InvalidInput, format!("{:?}", e)))
 }

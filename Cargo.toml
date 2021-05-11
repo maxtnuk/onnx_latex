@@ -2,7 +2,9 @@
 members = [
     "examples/latex_test",
     "latex_gen",
-    "server"
+    "server",
+    "onnx",
+    "hir"
 ]
 
 [profile.release]
