@@ -30,7 +30,7 @@ pub struct FormulNode {
     #[serde(default)]
     pub formul: String,
     #[serde(default)]
-    pub declaration: HashMap<String,String>,
+    pub declaration: HashMap<String, String>,
     #[serde(default)]
     pub diff: Option<String>,
     #[serde(default)]

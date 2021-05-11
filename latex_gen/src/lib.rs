@@ -70,7 +70,6 @@ pub struct LatexNode {
     pub output_shape: Vec<usize>,
     pub backward_value: String,
     pub backward_symbol: String,
-    pub descriptions_prefix: HashMap<String, String>,
     pub description: String,
     pub op_attributes: DebugValue,
 }
@@ -459,15 +458,13 @@ impl LatexEngine {
                 form.inputs = input_ids.clone();
                 form.forward_value = forward_string;
             }
-            self.configure_decription(*n);
         }
-  
 
         // backward
         // self.gen_back_total(model, latex_result.senario.clone());
         let mut latex_result = LatexResult::new(model.nodes.len());
         latex_result.symbol_map = self.symbol_map.clone();
-        
+
         latex_result.senario = senario;
         self.flush();
         latex_result
@@ -660,7 +657,6 @@ impl LatexEngine {
                     nn.outputs.push(i.node);
                 }
             }
-            nn.descriptions_prefix = descriptions;
         }
         Some(kind)
     }
@@ -1012,42 +1008,6 @@ impl LatexResult {
 pub enum ParseMode {
     Brief,
     Full,
-}
-//  just model info
-pub fn model_info<P: AsRef<Path>>(path: P) -> TractResult<()> {
-    let model = tract_onnx::onnx()
-        // load the model
-        .model_for_path(path)?
-        // specify input type and shape
-        // optimize the model
-        // make the model runnable and fix its inputs and outputs
-        .into_runnable()?;
-    // let mm = model.model();
-    // println!("input shape{}",mm.node(0).)
-
-    for n in model.model().nodes() {
-        let op_name = n.op().name();
-        let node_name = n.name.clone();
-        println!("id: {}", n.id);
-        println!("op options {:?}", n.op());
-        println!("inputs: ");
-        for i in n.inputs.iter() {
-            print!(" {:?}", i);
-            let fact = model.model().outlet_fact(*i).unwrap();
-            println!("shape: {:?}", fact.shape.clone());
-            println!("value: {:?}", fact.value.clone());
-        }
-        for i in n.outputs.iter() {
-            println!("out test:{:?}", i.fact.shape);
-            for j in i.successors.iter() {
-                println!("output: {:?}", j);
-            }
-        }
-        println!("node name: {}", node_name);
-        println!("op name: {}", op_name);
-        println!();
-    }
-    Ok(())
 }
 
 #[test]

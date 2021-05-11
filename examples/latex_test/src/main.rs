@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write, path::Path};
+use std::path::Path;
 
 use latex_gen::{LatexEngine, TractResult};
 
@@ -23,8 +23,8 @@ fn test_part<F: AsRef<Path>>(path: F) -> TractResult<()> {
     // for n in result.symbol_map.iter() {
     //     println!("forward: {}", n.clone().unwrap().forward_value);
     // }
-    let mut file = File::create("vgg.txt")?;
-    file.write_all(result.gen_map_json().as_bytes())?;
+    // let mut file = File::create("vgg.txt")?;
+    // file.write_all(result.gen_map_json().as_bytes())?;
     // println!("{}", result.gen_json());
 
     // println!("{}",result.gen_json());
