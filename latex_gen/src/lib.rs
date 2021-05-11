@@ -1,6 +1,19 @@
-use tract_onnx::{pb::ModelProto, tract_core::ops::nn::Sigmoid, tract_hir::{internal::{Expansion, OpState, SessionState}, ops::{
-            array::Pad, dummy::Dummy, element_wise::ElementWiseOp, konst::Const, source::Source,
-        }, utils::{FormulKind, MathGen, is_weightable, mathgen_ele_op}}};
+use tract_onnx::{
+    pb::ModelProto,
+    tract_core::ops::nn::Sigmoid,
+    tract_hir::{
+        internal::{Expansion, OpState, SessionState},
+        ops::{
+            array::Pad,
+            cnn::{MaxPool, SumPool},
+            dummy::Dummy,
+            element_wise::ElementWiseOp,
+            konst::Const,
+            source::Source,
+        },
+        utils::{is_weightable, mathgen_ele_op, FormulKind, MathGen},
+    },
+};
 
 use nom::error::ErrorKind;
 use rand::prelude::*;
@@ -303,7 +316,7 @@ impl LatexEngine {
             .into_shape(input_shape.as_slice())
             .unwrap();
 
-        let result = self.parse_plan(&plan, tvec![input.into()], ParseMode::Full);
+        let result = self.parse_plan(&plan, tvec![input.into()], ParseMode::Brief);
 
         Ok(result)
     }
@@ -335,7 +348,7 @@ impl LatexEngine {
             let node_kind = self.configure_node(node, *n);
             // println!("node_kind {:?}",node_kind);
             let node_op = Self::boxed_mathgen(node);
-            let mut candidate:Option<usize> = None;
+            let mut candidate: Option<usize> = None;
             // input part
             let mut inputs: TVec<Arc<Tensor>> = tvec![];
             let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
@@ -344,15 +357,11 @@ impl LatexEngine {
                 match fk {
                     FormulKind::Activation | FormulKind::Function | FormulKind::Cnn => {
                         match fk {
-                            FormulKind::Function => {
-                                
-                            },
-                            FormulKind::Cnn => { 
-                                candidate=Some(input_ids[0]);
+                            FormulKind::Function => {}
+                            FormulKind::Cnn => {
+                                candidate = Some(input_ids[0]);
                             }
-                            _ =>{
-
-                            }
+                            _ => {}
                         }
                         senario.push(*n);
                     }
@@ -362,13 +371,11 @@ impl LatexEngine {
 
             // let op_name = node.op().name();
 
-            
-           
             for i in input_ids.iter() {
                 let undefined_node = model.node(*i);
-                let inner=self.configure_node(undefined_node, *i);
+                let inner = self.configure_node(undefined_node, *i);
             }
-            let mut input_shape_option:Option<Vec<usize>>= None;
+            let mut input_shape_option: Option<Vec<usize>> = None;
             for i in &node.inputs {
                 let prec_node = model.node(i.node);
                 let prec = values[i.node].as_ref().ok_or_else(|| "error").unwrap();
@@ -379,16 +386,16 @@ impl LatexEngine {
                     .dims()
                     .map(|s| format!("{}", s).as_str().parse().unwrap())
                     .collect();
-                
+
                 if let Some(l) = self.symbol_map[i.node].as_mut() {
-                    if let Some(x) = candidate{
-                        if x==i.node{
-                            if l.output_shape.len() >0 {
+                    if let Some(x) = candidate {
+                        if x == i.node {
+                            if l.output_shape.len() > 0 {
                                 input_shape_option = Some(l.output_shape.clone());
-                            }else{
-                                input_shape_option=Some(input_shape.clone());
+                            } else {
+                                input_shape_option = Some(input_shape.clone());
                             }
-                        }     
+                        }
                     }
                     if l.output_shape.len() == 0 {
                         l.output_shape = input_shape;
@@ -404,10 +411,11 @@ impl LatexEngine {
             )
             .unwrap();
             values[node.id] = Some(vs.clone());
-            let output_shape:Vec<usize>= vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
+            let output_shape: Vec<usize> =
+                vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
             if let Some(form) = self.symbol_map[*n].as_mut() {
                 form.output_shape = output_shape.clone();
-                form.input_shape_ref= input_shape_option.clone();
+                form.input_shape_ref = input_shape_option.clone();
             }
 
             // println!("opname {}",op_name);
@@ -417,13 +425,16 @@ impl LatexEngine {
                         .iter()
                         .map(|s| self.symbol_map[*s].as_ref().unwrap().symbol.clone())
                         .collect();
-                    node_op.gen_forward_value(input_symbols,input_shape_option,Some(output_shape.clone()))
+                    node_op.gen_forward_value(
+                        input_symbols,
+                        input_shape_option,
+                        Some(output_shape.clone()),
+                    )
                 }
                 ParseMode::Full => self.rec_node(node, model),
             };
             // node formul
 
-           
             if let Some(form) = self.symbol_map[*n].as_mut() {
                 form.inputs = input_ids.clone();
                 form.forward_value = forward_string;
@@ -447,7 +458,7 @@ impl LatexEngine {
         } else {
             let op = node.op();
             // println!("op detail {:?}",op);
-            let mut result = each_op!(op, [Const, Pad, Dummy, Source]);
+            let mut result = each_op!(op, [Const, Pad, Dummy, Source, MaxPool, SumPool]);
             let t = result.iter_mut().find_map(|s| std::mem::take(s));
             if let Some(x) = t {
                 x
@@ -469,22 +480,25 @@ impl LatexEngine {
     ) -> Result<(), std::io::Error> {
         let senario = symbol_result.senario.clone();
         let last_point = senario.last().unwrap();
-        let model = tract_onnx::onnx().model_for_proto_model(&symbol_result.original_data).unwrap();
+        let model = tract_onnx::onnx()
+            .model_for_proto_model(&symbol_result.original_data)
+            .unwrap();
 
         for i in senario.iter() {
-            let node=model.node(*i);
+            let node = model.node(*i);
             let math_op = Self::boxed_mathgen(node);
             let sym_node = symbol_result.symbol_map[*i].as_ref().unwrap();
 
-            let kind =math_op.get_symbol_type(sym_node.extra_symbol.clone());
-            println!("{:?}",kind);
-            if is_weightable(kind).is_none(){
-                println!("skip {}",*i);
+            let kind = math_op.get_symbol_type(sym_node.extra_symbol.clone());
+            println!("{:?}", kind);
+            if is_weightable(kind).is_none() {
+                println!("skip {}", *i);
                 continue;
             }
-            let (s, v) = self.gen_each_back(&model,symbol_result, (*i, *last_point), which, depth)?;
+            let (s, v) =
+                self.gen_each_back(&model, symbol_result, (*i, *last_point), which, depth)?;
             if let Some(f) = symbol_result.symbol_map[*i].as_mut() {
-                println!("called {},{}",v,s);
+                println!("called {},{}", v, s);
                 f.backward_value = v;
                 f.backward_symbol = s;
             }
@@ -511,10 +525,10 @@ impl LatexEngine {
                 std::io::ErrorKind::NotFound,
                 "not found index",
             ))?;
-        
-        let node=model.node(index);
+
+        let node = model.node(index);
         let math_op = Self::boxed_mathgen(node);
-            
+
         let n_shape = shape
             .get(1)
             .unwrap_or(shape.get(0).ok_or(std::io::Error::new(
@@ -532,27 +546,24 @@ impl LatexEngine {
         // suppose total
         let expand_value =
             self.expand_diff_symbol(symbol_result.symbol_map.as_ref(), start_node, last_point);
-        println!("expand {:?}",expand_value);
+        println!("expand {:?}", expand_value);
         let e_option = depth
             .map(|x| ErrorResultTo::Innner(x))
             .unwrap_or(ErrorResultTo::Total);
 
-        let backward = self.gen_backward_value(&expand_value, &model,e_option, which);
-        let e_symbol = self.symbol_library.gen_error_symbol(vec!["total".to_string(), "".to_string()]);
+        let backward = self.gen_backward_value(&expand_value, &model, e_option, which);
+        let e_symbol = self
+            .symbol_library
+            .gen_error_symbol(vec!["total".to_string(), "".to_string()]);
 
         let down_symbol = self.symbol_library.gen_w_symbol_inner(symbol, which, true);
 
-
-        Ok((
-            math_op.gen_backward(e_symbol, down_symbol),
-            backward
-        ))
+        Ok((math_op.gen_backward(e_symbol, down_symbol), backward))
     }
 
-  
     fn rec_node(&self, node: &InferenceNode, model: &InferenceModel) -> String {
         let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
-        let sym_node =self.symbol_map[node.id].as_ref().unwrap();
+        let sym_node = self.symbol_map[node.id].as_ref().unwrap();
         if input_ids.len() == 0 {
             return sym_node.symbol.clone();
         }
@@ -566,9 +577,9 @@ impl LatexEngine {
         let n_name = node.op().name();
 
         let node_op = Self::boxed_mathgen(node);
-        let output_shape=sym_node.output_shape.clone();
-        let input_shape= sym_node.input_shape_ref.clone();
-        node_op.gen_forward_value(ins,input_shape,Some(output_shape))
+        let output_shape = sym_node.output_shape.clone();
+        let input_shape = sym_node.input_shape_ref.clone();
+        node_op.gen_forward_value(ins, input_shape, Some(output_shape))
     }
     fn countup(&mut self, kind: &FormulKind) -> Option<usize> {
         match kind {
@@ -576,7 +587,7 @@ impl LatexEngine {
                 self.activation_count += 1;
                 Some(self.activation_count)
             }
-            FormulKind::Function | FormulKind::Cnn=> {
+            FormulKind::Function | FormulKind::Cnn => {
                 self.formul_count += 1;
                 Some(self.formul_count)
             }
@@ -601,9 +612,9 @@ impl LatexEngine {
 
         let node_op = Self::boxed_mathgen(node);
         let op_name = node.op().name().to_string();
-        println!("op_name {}",op_name);
+        println!("op_name {}", op_name);
         let n_name_split: Vec<&str> = n_name.split(".").collect();
-        let inner = n_name_split.get(1).map(|s| s.to_string());
+        let inner = n_name_split.last().map(|x| x.to_string());
 
         let extra_symbol = match node_op.get_symbol_type(inner.clone()) {
             FormulKind::Undefined => None,
@@ -619,7 +630,7 @@ impl LatexEngine {
             nn.op_name = op_name;
             nn.index = index;
             nn.symbol = symbol;
-            nn.extra_symbol= extra_symbol.clone();
+            nn.extra_symbol = extra_symbol.clone();
             if node.outputs.len() != 0 && node.outputs[0].successors.len() != 0 {
                 for i in node.outputs[0].successors.iter() {
                     nn.outputs.push(i.node);
@@ -715,7 +726,9 @@ impl LatexEngine {
                         back_package[4].clone(),
                         vec![s.clone(), p0_str.clone()],
                     );
-                    let e_sym = self.symbol_library.gen_error_symbol(vec!["total".to_string(), last_node]);
+                    let e_sym = self
+                        .symbol_library
+                        .gen_error_symbol(vec!["total".to_string(), last_node]);
                     let a_sym = only_inputs_symbol_parts(
                         back_package[4].clone(),
                         vec![s.clone(), p0_str.clone()],
@@ -756,12 +769,15 @@ impl LatexEngine {
 
                 match d[0].clone() {
                     DiffChainNode::Weightable(i, ref s) => {
-                        let (p0_str, p1_str) = self.symbol_library.get_p0p1(level, weight, s.clone());
+                        let (p0_str, p1_str) =
+                            self.symbol_library.get_p0p1(level, weight, s.clone());
                         let last_node = only_inputs_symbol_parts(
                             back_package[4].clone(),
                             vec![s.clone(), p0_str.clone()],
                         );
-                        let e_symbol = self.symbol_library.gen_error_symbol(vec!["total".to_string(), last_node]);
+                        let e_symbol = self
+                            .symbol_library
+                            .gen_error_symbol(vec!["total".to_string(), last_node]);
 
                         let a_sym = only_inputs_symbol_parts(
                             back_package[4].clone(),
@@ -784,12 +800,16 @@ impl LatexEngine {
                         only_inputs_symbol_parts(back_package[2].clone(), vec![e_a, a_p])
                     }
                     DiffChainNode::UnWeightable(i, ref s) => {
-                        let (p0_str, p1_str) =self.symbol_library.get_p0p1(level, weight, d1_symbol.clone().unwrap());
+                        let (p0_str, p1_str) =
+                            self.symbol_library
+                                .get_p0p1(level, weight, d1_symbol.clone().unwrap());
                         let last_node = only_inputs_symbol_parts(
                             back_package[4].clone(),
                             vec![s.clone(), p0_str.clone()],
                         );
-                        let e_symbol = self.symbol_library.gen_error_symbol(vec!["total".to_string(), last_node]);
+                        let e_symbol = self
+                            .symbol_library
+                            .gen_error_symbol(vec!["total".to_string(), last_node]);
 
                         let a_sym = only_inputs_symbol_parts(
                             back_package[4].clone(),
@@ -832,7 +852,8 @@ impl LatexEngine {
                         );
 
                         if let Some(ref d2) = d2_symbol {
-                            let (p0_str, p1_str) = self.symbol_library.get_p0p1(level, weight, d2.clone());
+                            let (p0_str, p1_str) =
+                                self.symbol_library.get_p0p1(level, weight, d2.clone());
                             let p_sym = only_inputs_symbol_parts(
                                 back_package[4].clone(),
                                 vec![to_insert, p1_str.clone()],
@@ -857,8 +878,11 @@ impl LatexEngine {
                             );
                             only_inputs_symbol_parts(back_package[3].clone(), vec![first, a_b, b_f])
                         } else {
-                            let (p0_str, p1_str) =
-                                self.symbol_library.get_p0p1(level, weight, d1_symbol.clone().unwrap());
+                            let (p0_str, p1_str) = self.symbol_library.get_p0p1(
+                                level,
+                                weight,
+                                d1_symbol.clone().unwrap(),
+                            );
                             let p_sym = only_inputs_symbol_parts(
                                 back_package[4].clone(),
                                 vec![to_insert, p1_str.clone()],
@@ -880,7 +904,6 @@ impl LatexEngine {
         };
         result
     }
-   
 
     fn get_symbol_if_func(target: &DiffChainNode) -> Option<String> {
         match target {
@@ -909,7 +932,7 @@ impl LatexEngine {
         let under_splits = symbol_split(underform.formul.as_str()).unwrap();
 
         let vv = vec![d_splits, s_splits, c2_splits, c3_splits, under_splits];
-        self.rec_backward(target, &vv, model,0, final_model_end, None, weight)
+        self.rec_backward(target, &vv, model, 0, final_model_end, None, weight)
     }
 }
 
@@ -947,7 +970,7 @@ impl LatexResult {
         let j = serde_json::to_string_pretty(self).unwrap();
         j
     }
-    pub fn gen_map_json(&self) ->String{
+    pub fn gen_map_json(&self) -> String {
         serde_json::to_string_pretty(&self.symbol_map).unwrap()
     }
     pub fn erase_slash(&mut self) {

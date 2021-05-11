@@ -28,18 +28,20 @@ fn test_part<F: AsRef<Path>>(path: F) -> TractResult<()> {
     let mut engine = LatexEngine::new();
 
     let mut result = engine.parse_from_path(path)?;
-    println!("{:?}",result.senario);
-    let parse_result = engine.gen_back_total(&mut result, (9, 4), Some(1));
-    if parse_result.is_ok() {
-        for i in 0..result.symbol_map.len() {
-            println!("backward: {}", result.get_node_backward(i));
-        }
-    } else {
-        println!("message: {:?}", parse_result.err());
-    }
-    for n in result.symbol_map.iter() {
-        println!("forward: {}", n.clone().unwrap().forward_value);
-    }
+    println!("{:?}", result.senario);
+    // let parse_result = engine.gen_back_total(&mut result, (9, 4), Some(1));
+    // if parse_result.is_ok() {
+    //     for i in 0..result.symbol_map.len() {
+    //         println!("backward: {}", result.get_node_backward(i));
+    //     }
+    // } else {
+    //     println!("message: {:?}", parse_result.err());
+    // }
+    // for n in result.symbol_map.iter() {
+    //     println!("forward: {}", n.clone().unwrap().forward_value);
+    // }
+    let mut file = File::create("vgg.txt")?;
+    file.write_all(result.gen_map_json().as_bytes())?;
     // println!("{}", result.gen_json());
 
     // println!("{}",result.gen_json());
@@ -112,6 +114,10 @@ fn test_cnn_info() -> TractResult<()> {
 #[test]
 fn test_vgg_info() -> TractResult<()> {
     latex_gen::model_info("test_models/lvgg.onnx")
+}
+#[test]
+fn test_vgg() -> TractResult<()> {
+    test_part("test_models/lvgg.onnx")
 }
 
 #[test]

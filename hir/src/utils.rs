@@ -44,7 +44,12 @@ pub trait MathGen {
         let kind = self.get_symbol_type(extra_symbol.clone());
         gen_symbol(extra_symbol, kind, idx)
     }
-    fn gen_forward_value(&self, inputs: Vec<String>,input_shape: Option<Vec<usize>>,output_shape: Option<Vec<usize>>) -> String {
+    fn gen_forward_value(
+        &self,
+        inputs: Vec<String>,
+        input_shape: Option<Vec<usize>>,
+        output_shape: Option<Vec<usize>>,
+    ) -> String {
         "".to_string()
     }
     fn gen_backward(&self, upper: String, under: String) -> String {
@@ -58,7 +63,7 @@ pub trait MathGen {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq,Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum FormulKind {
     Activation,
     Function,
@@ -70,6 +75,8 @@ pub enum FormulKind {
     Input,
     Cnn,
     Const,
+    MaxPool,
+    SumPool,
 }
 fn get_extra_symbol(original: String) -> FormulKind {
     match original.as_str() {
@@ -79,14 +86,10 @@ fn get_extra_symbol(original: String) -> FormulKind {
         _ => FormulKind::Undefined,
     }
 }
-pub fn is_weightable(form: FormulKind)-> Option<FormulKind>{
-    match form{
-        FormulKind::Function | FormulKind::Cnn =>{
-            Some(form)
-        }
-        _ => {
-            None
-        }
+pub fn is_weightable(form: FormulKind) -> Option<FormulKind> {
+    match form {
+        FormulKind::Function | FormulKind::Cnn => Some(form),
+        _ => None,
     }
 }
 
@@ -108,7 +111,13 @@ pub fn gen_symbol(symbol: Option<String>, n_type: FormulKind, idx: usize) -> Str
             format!(r#"\overline{{Input}}"#)
         }
         FormulKind::Cnn => {
-            format!(r#"Cnn_{}"#,idx)
+            format!(r#"Cnn_{}"#, idx)
+        }
+        FormulKind::MaxPool => {
+            format!(r#"MaxPool_{}"#, idx)
+        }
+        FormulKind::SumPool => {
+            format!(r#"SumPool_{}"#, idx)
         }
         _ => {
             if let Some(s) = symbol {
@@ -142,9 +151,48 @@ impl MathGen for Const {
 impl MathGen for ConstantLike {}
 impl MathGen for EyeLike {}
 impl MathGen for Gather {}
-impl MathGen for SumPool {}
+impl MathGen for SumPool {
+    fn get_original_type(&self) -> FormulKind {
+        FormulKind::SumPool
+    }
+    fn gen_forward_value(
+        &self,
+        inputs: Vec<String>,
+        input_shape: Option<Vec<usize>>,
+        output_shape: Option<Vec<usize>>,
+    ) -> String {
+        format!(r#"\sum {}"#, inputs[0])
+    }
+}
 impl MathGen for PoolSpec {}
-impl MathGen for MaxPool {}
+impl MathGen for MaxPool {
+    fn get_original_type(&self) -> FormulKind {
+        FormulKind::MaxPool
+    }
+    fn gen_forward_value(
+        &self,
+        inputs: Vec<String>,
+        input_shape: Option<Vec<usize>>,
+        output_shape: Option<Vec<usize>>,
+    ) -> String {
+        let pool_stride = self.pool_spec.strides.clone();
+        let (s0, s1) = if let Some(x) = pool_stride {
+            let i: Vec<usize> = x.iter().map(|s| *s).collect();
+            (i[0], i[1])
+        } else {
+            (1, 1)
+        };
+        let kernel = self.pool_spec.kernel_shape.clone();
+        format!(
+            r#"\max_{{m=0,…,{kh}}} \max_{{n=0,…,{kw}}}{}(Cj,{s0}×h+m,{s1}×w+n)"#,
+            inputs[0],
+            s0 = s1,
+            s1 = s1,
+            kh = kernel[0] - 1,
+            kw = kernel[1] - 1
+        )
+    }
+}
 impl MathGen for UnimplementedOp {}
 impl MathGen for Iff {}
 impl MathGen for Nary {}
@@ -155,7 +203,12 @@ impl MathGen for Sigmoid {
     fn get_original_type(&self) -> FormulKind {
         FormulKind::Activation
     }
-    fn gen_forward_value(&self, inputs: Vec<String>,input_shape: Option<Vec<usize>>,output_shape: Option<Vec<usize>>) -> String {
+    fn gen_forward_value(
+        &self,
+        inputs: Vec<String>,
+        input_shape: Option<Vec<usize>>,
+        output_shape: Option<Vec<usize>>,
+    ) -> String {
         format!(r#"\frac{{1}}{{1+e^{{-({})}}}}"#, inputs[0])
     }
 }

@@ -141,23 +141,26 @@ impl MathGen for Conv {
     fn get_original_type(&self) -> FormulKind {
         FormulKind::Cnn
     }
-    fn gen_forward_value(&self, inputs: Vec<String>,input_shape: Option<Vec<usize>>,output_shape: Option<Vec<usize>>) -> String {
-        let inner=input_shape.unwrap();
-        let (c,h,w)=match self.data_format{
-            DataFormat::NCHW => {
-               (inner[1],inner[2],inner[3])
-            }
-            DataFormat::NHWC => {
-                (inner[3],inner[1],inner[2])
-            }
-            DataFormat::CHW => {
-                (inner[0],inner[1],inner[2])
-            }
-            DataFormat::HWC => {
-                (inner[2],inner[0],inner[1])
-            }
+    fn gen_forward_value(
+        &self,
+        inputs: Vec<String>,
+        input_shape: Option<Vec<usize>>,
+        output_shape: Option<Vec<usize>>,
+    ) -> String {
+        let inner = input_shape.unwrap();
+        let (c, h, w) = match self.data_format {
+            DataFormat::NCHW => (inner[1], inner[2], inner[3]),
+            DataFormat::NHWC => (inner[3], inner[1], inner[2]),
+            DataFormat::CHW => (inner[0], inner[1], inner[2]),
+            DataFormat::HWC => (inner[2], inner[0], inner[1]),
         };
-        format!(r#"{bias}+\sum_{{n=0}}^{{{many}}}({weight}⋆({input}))"#,bias=inputs[2],many=c,weight=inputs[1],input=inputs[0])
+        format!(
+            r#"{bias}+\sum_{{n=0}}^{{{many}}}({weight}⋆({input}))"#,
+            bias = inputs[2],
+            many = c,
+            weight = inputs[1],
+            input = inputs[0]
+        )
     }
 }
 
