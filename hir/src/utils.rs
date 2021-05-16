@@ -87,7 +87,7 @@ fn get_extra_symbol(original: String) -> FormulKind {
 }
 pub fn is_weightable(form: FormulKind) -> Option<FormulKind> {
     match form {
-        FormulKind::Function | FormulKind::Cnn => Some(form),
+        FormulKind::Function | FormulKind::Cnn | FormulKind::MaxPool | FormulKind::SumPool=> Some(form) ,
         _ => None,
     }
 }

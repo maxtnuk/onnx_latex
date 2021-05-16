@@ -232,10 +232,9 @@ impl ParseModelResult {
     }
 }
 
-pub fn parse_proto<P: AsRef<Path>>(path: P) -> TractResult<String> {
+pub fn parse_proto<P: AsRef<Path>>(path: P) -> TractResult<ModelProto> {
     let proto_file = tract_onnx::onnx().proto_model_for_path(path)?;
-    let ss = serde_json::to_string(&proto_file).unwrap();
-    Ok(ss)
+    Ok(proto_file)
 }
 pub fn parse_proto_from_file(reader: &mut dyn Read) -> TractResult<ModelProto> {
     let proto_file = tract_onnx::onnx().proto_model_for_read(reader)?;
@@ -310,16 +309,16 @@ impl LatexEngine {
         self.const_count = 0;
         self.activation_count = 0;
     }
-    pub fn parse_from_path<P: AsRef<Path>>(&mut self, path: P) -> TractResult<LatexResult> {
+    pub fn parse_from_path<P: AsRef<Path>>(&mut self, path: P, many: Option<usize>) -> TractResult<LatexResult> {
         let plan = self.engine.model_for_path(path)?.into_runnable()?;
-        self.start_parse(&plan)
+        self.start_parse(&plan,many)
     }
-    pub fn parse_from_file(&mut self, file: &mut dyn Read) -> TractResult<LatexResult> {
+    pub fn parse_from_file(&mut self, file: &mut dyn Read, many: Option<usize>) -> TractResult<LatexResult> {
         let plan = self.engine.model_for_read(file)?.into_runnable()?;
-        self.start_parse(&plan)
+        self.start_parse(&plan,many)
     }
 
-    fn start_parse(&mut self, plan: &InferencePlan) -> TractResult<LatexResult> {
+    fn start_parse(&mut self, plan: &InferencePlan,many: Option<usize>) -> TractResult<LatexResult> {
         let mm = plan.model();
         let input_shape: Vec<usize> = mm.node(0).outputs[0]
             .fact
@@ -335,7 +334,7 @@ impl LatexEngine {
             .into_shape(input_shape.as_slice())
             .unwrap();
 
-        let result = self.parse_plan(&plan, tvec![input.into()], ParseMode::Brief);
+        let result = self.parse_plan(&plan, tvec![input.into()], ParseMode::Full(many));
 
         Ok(result)
     }
@@ -450,7 +449,7 @@ impl LatexEngine {
                         Some(output_shape.clone()),
                     )
                 }
-                ParseMode::Full => self.rec_node(node, model),
+                ParseMode::Full(many) => self.rec_node(node, model,many),
             };
             // node formul
 
@@ -562,11 +561,18 @@ impl LatexEngine {
                 "which's size exceed shape range",
             ));
         }
+        let sym_node = symbol_result.symbol_map[index].as_ref().unwrap();
+        let kind = math_op.get_symbol_type(sym_node.extra_symbol.clone());
+        let start_node=if is_weightable(kind).is_some(){
+            DiffChainNode::Weightable(index,symbol.clone())
+        }else{
+            // do not use this when start
+            DiffChainNode::UnWeightable(index,symbol.clone())
+        };
 
-        let start_node = DiffChainNode::Weightable(index, symbol.clone());
         // suppose total
         let expand_value =
-            self.expand_diff_symbol(symbol_result.symbol_map.as_ref(), start_node, last_point);
+            self.expand_diff_symbol(symbol_result.symbol_map.as_ref(),model, start_node, last_point);
         println!("expand {:?}", expand_value);
         let e_option = depth
             .map(|x| ErrorResultTo::Innner(x))
@@ -582,25 +588,36 @@ impl LatexEngine {
         Ok((math_op.gen_backward(e_symbol, down_symbol), backward))
     }
 
-    fn rec_node(&self, node: &InferenceNode, model: &InferenceModel) -> String {
+    fn rec_node(&self, node: &InferenceNode, model: &InferenceModel,many: Option<usize>) -> String {
         let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
         let sym_node = self.symbol_map[node.id].as_ref().unwrap();
         if input_ids.len() == 0 {
             return sym_node.symbol.clone();
         }
-
-        let ins = input_ids.iter().fold(Vec::new(), |mut acc, x| {
-            let i_node = model.node(*x);
-            acc.push(self.rec_node(i_node, model));
-            acc
-        });
-        let _n = node.id;
-        let _n_name = node.op().name();
-
-        let node_op = Self::boxed_mathgen(node);
-        let output_shape = sym_node.output_shape.clone();
-        let input_shape = sym_node.input_shape_ref.clone();
-        node_op.gen_forward_value(ins, input_shape, Some(output_shape))
+        match many{
+            Some(x) if x ==0 => {
+                sym_node.symbol.clone()
+            }
+            _ => {
+                let ins = input_ids.iter().fold(Vec::new(), |mut acc, x| {
+                    let i_node = model.node(*x);
+                    if let Some(x) = many{
+                        acc.push(self.rec_node(i_node, model,Some(x-1)));
+                    }else{
+                        acc.push(self.rec_node(i_node, model,None));
+                    }
+                    
+                    acc
+                }); 
+                let _n = node.id;
+                let _n_name = node.op().name();
+        
+                let node_op = Self::boxed_mathgen(node);
+                let output_shape = sym_node.output_shape.clone();
+                let input_shape = sym_node.input_shape_ref.clone();
+                node_op.gen_forward_value(ins, input_shape, Some(output_shape))   
+            }
+        }   
     }
     fn countup(&mut self, kind: &FormulKind) -> Option<usize> {
         match kind {
@@ -633,7 +650,7 @@ impl LatexEngine {
 
         let node_op = Self::boxed_mathgen(node);
         let op_name = node.op().name().to_string();
-        println!("op_name {}", op_name);
+        // println!("op_name {}", op_name);
         let n_name_split: Vec<&str> = n_name.split(".").collect();
         let inner = n_name_split.last().map(|x| x.to_string());
 
@@ -663,6 +680,7 @@ impl LatexEngine {
     pub fn expand_diff_symbol(
         &self,
         symbol_map: &Vec<Option<LatexNode>>,
+        model: &InferenceModel,
         target: DiffChainNode,
         error_node: usize,
     ) -> DiffChainNode {
@@ -676,7 +694,24 @@ impl LatexEngine {
                     DiffChainNode::Weightable(i, _s) => {
                         println!("weightable in chain: {}", i);
                         if i != error_node {
-                            DiffChainNode::Not
+                            let node = symbol_map[i].as_ref().unwrap();
+                            let into_node_id = node.outputs[0];
+
+                            let in_node = symbol_map[into_node_id].as_ref().unwrap();
+                            let sum = self.expand_diff_symbol(
+                                symbol_map,
+                                model,
+                                self.diff_node(model,symbol_map,into_node_id),
+                                error_node,
+                            );
+                            let size_check = if in_node.output_shape.len() > 1{
+                                in_node.output_shape.iter().skip(1).product()
+                            }else{
+                                in_node.output_shape[0]
+                            };
+                            sum_it.push(DiffChainNode::Sum(Box::new(sum), size_check));
+                            sum_it.append(&mut v_clone);
+                            DiffChainNode::Chain(sum_it)
                         } else {
                             DiffChainNode::Chain(v.clone())
                         }
@@ -690,12 +725,13 @@ impl LatexEngine {
                             let in_node = symbol_map[into_node_id].as_ref().unwrap();
                             let sum = self.expand_diff_symbol(
                                 symbol_map,
-                                DiffChainNode::Weightable(into_node_id, in_node.symbol.clone()),
+                                model,
+                                self.diff_node(model,symbol_map,into_node_id),
                                 error_node,
                             );
-                            let size_check = if in_node.output_shape.len() > 1 {
-                                in_node.output_shape[1]
-                            } else {
+                            let size_check = if in_node.output_shape.len() > 1{
+                                in_node.output_shape.iter().skip(1).product()
+                            }else{
                                 in_node.output_shape[0]
                             };
                             sum_it.push(DiffChainNode::Sum(Box::new(sum), size_check));
@@ -711,20 +747,63 @@ impl LatexEngine {
             // first
             DiffChainNode::Weightable(i, s) => {
                 //
-                let node = symbol_map[i].as_ref().unwrap();
                 let mut result = Vec::new();
                 // println!("out length {}", node.outputs.len());
-
-                if node.outputs.len() != 0 {
-                    let into_node = node.outputs[0];
-                    let symbol_name = symbol_map[into_node].as_ref().unwrap().symbol.clone();
-                    result.push(DiffChainNode::UnWeightable(into_node, symbol_name));
+                let sym_node = symbol_map[i].as_ref().unwrap();
+                let mut already_rec = false;
+                if sym_node.outputs.len() != 0 {
+                    let into_node_idx = sym_node.outputs[0];
+                    let t_d = self.diff_node(model,symbol_map,into_node_idx);
+                    match t_d.clone(){
+                        x@DiffChainNode::Weightable(_,_)=>{
+                            let in_node = symbol_map[into_node_idx].as_ref().unwrap();
+                            let size_check = if in_node.output_shape.len() > 1{
+                                in_node.output_shape.iter().skip(1).product()
+                            }else{
+                                in_node.output_shape[0]
+                            };
+                            let d = self.expand_diff_symbol(symbol_map, model,x, error_node);
+                            already_rec=true;
+                            result.push(DiffChainNode::Sum(Box::new(d),size_check));
+                        }
+                        _ => {
+                            result.push(t_d.clone());
+                        }
+                    }
                 }
                 result.push(DiffChainNode::Weightable(i, s));
+                if already_rec{
+                    DiffChainNode::Chain(result)
+                }else{
+                    self.expand_diff_symbol(symbol_map, model,DiffChainNode::Chain(result), error_node)   
+                }
+            }
+            DiffChainNode::UnWeightable(i, s) => {
+                //
+                let mut result = Vec::new();
+                // println!("out length {}", node.outputs.len());
+                let sym_node = symbol_map[i].as_ref().unwrap();
 
-                self.expand_diff_symbol(symbol_map, DiffChainNode::Chain(result), error_node)
+                if sym_node.outputs.len() != 0 {
+                    let into_node_idx = sym_node.outputs[0];
+                    result.push(self.diff_node(model,symbol_map,into_node_idx));
+                }
+                result.push(DiffChainNode::UnWeightable(i, s));
+
+                self.expand_diff_symbol(symbol_map, model,DiffChainNode::Chain(result), error_node)
             }
             x @ _ => x,
+        }
+    }
+    fn diff_node(&self,model: &InferenceModel,symbol_map: &Vec<Option<LatexNode>>,node_idx: usize)->DiffChainNode{
+        let node = model.node(node_idx);
+        let sym_node = symbol_map[node_idx].as_ref().unwrap();
+        let math_op = Self::boxed_mathgen(node);
+        let kind=math_op.get_symbol_type(sym_node.extra_symbol.clone());
+        if is_weightable(kind).is_some(){
+            DiffChainNode::Weightable(node_idx,sym_node.symbol.clone())
+        }else{
+            DiffChainNode::UnWeightable(node_idx,sym_node.symbol.clone())
         }
     }
     // max three
@@ -1007,7 +1086,7 @@ impl LatexResult {
 
 pub enum ParseMode {
     Brief,
-    Full,
+    Full(Option<usize>),
 }
 
 #[test]

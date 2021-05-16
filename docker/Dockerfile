@@ -9,9 +9,9 @@ COPY ./onnx ./onnx
 
 RUN cd server && cargo install --path .
 
-FROM gcr.io/distroless/cc-debian10
+# FROM gcr.io/distroless/cc-debian10
 
-COPY --from=build /usr/local/cargo/bin/server /usr/local/bin/server
+# COPY --from=build /usr/local/cargo/bin/server /usr/local/bin/server
 
 EXPOSE 8080
 CMD ["server"]

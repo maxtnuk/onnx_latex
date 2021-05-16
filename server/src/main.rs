@@ -77,8 +77,15 @@ async fn mutlipart_filelist(payload: &mut Multipart) -> Result<HashMap<String, O
     Ok(file_list)
 }
 
+#[derive(Deserialize)]
+struct ParseParam {
+    depth: Option<usize>,
+}
+
 #[post("/parse_model")]
-async fn parse_file(mut payload: Multipart) -> Result<HttpResponse, Error> {
+async fn parse_file(
+    web::Query(info): web::Query<ParseParam>,
+    mut payload: Multipart) -> Result<HttpResponse, Error> {
     // iterate over multipart stream
     //  only one file
     let mut file_list = mutlipart_filelist(&mut payload).await?;
@@ -92,7 +99,7 @@ async fn parse_file(mut payload: Multipart) -> Result<HttpResponse, Error> {
         .ok_or(MyError::BadClientData)?;
 
     let result = engine
-        .parse_from_file(model)
+        .parse_from_file(model,info.depth)
         .map_err(|_e| MyError::ParseError)?;
 
     model.seek(SeekFrom::Start(0)).unwrap();
