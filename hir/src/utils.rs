@@ -2,11 +2,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 use serde::Serialize;
-use tract_core::{
-    dyn_clone,
-    internal::ElementWiseMiniOp,
-    model::Op,
-    ops::{
+use tract_core::{dyn_clone::{self, DynClone, clone_box, clone_trait_object}, internal::ElementWiseMiniOp, model::Op, ops::{
         array::{Gather, Pad},
         cnn::{MaxPool, PoolSpec, SumPool},
         dummy::Dummy,
@@ -17,15 +13,14 @@ use tract_core::{
         math::{Add, Max, Min},
         nn::Sigmoid,
         unimpl::UnimplementedOp,
-    },
-};
+    }};
 
 use crate::ops::{
     array::{ConstantLike, EyeLike},
     binary::Nary,
 };
 
-pub trait MathGen {
+pub trait MathGen:DynClone {
     fn get_original_type(&self) -> FormulKind {
         let result = FormulKind::Undefined;
         // println!("default called: {:?}",result);
@@ -62,6 +57,9 @@ pub trait MathGen {
     }
 }
 
+dyn_clone::clone_trait_object!(MathGen);
+
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum FormulKind {
     Activation,
@@ -95,32 +93,32 @@ pub fn is_weightable(form: FormulKind) -> Option<FormulKind> {
 pub fn gen_symbol(symbol: Option<String>, n_type: FormulKind, idx: usize) -> String {
     match n_type {
         FormulKind::Activation => {
-            format!("h_{}", idx)
+            format!("h_{{{}}}", idx)
         }
         FormulKind::Function => {
-            format!("f_{}", idx)
+            format!("f_{{{}}}", idx)
         }
         FormulKind::Weight => {
-            format!(r#"\overline{{W_{}}}"#, idx)
+            format!(r#"\overline{{W_{{{}}}}}"#, idx)
         }
         FormulKind::Bias => {
-            format!(r#"\overline{{B_{}}}"#, idx)
+            format!(r#"\overline{{B_{{{}}}}}"#, idx)
         }
         FormulKind::Input => {
             format!(r#"\overline{{Input}}"#)
         }
         FormulKind::Cnn => {
-            format!(r#"Cnn_{}"#, idx)
+            format!(r#"Cnn_{{{}}}"#, idx)
         }
         FormulKind::MaxPool => {
-            format!(r#"MaxPool_{}"#, idx)
+            format!(r#"MaxPool_{{{}}}"#, idx)
         }
         FormulKind::SumPool => {
-            format!(r#"SumPool_{}"#, idx)
+            format!(r#"SumPool_{{{}}}"#, idx)
         }
         _ => {
             if let Some(s) = symbol {
-                format!("{}_{}", s, idx)
+                format!("{}_{{{}}}", s, idx)
             } else {
                 "Undefined".to_string()
             }

@@ -85,7 +85,8 @@ struct ParseParam {
 #[post("/parse_model")]
 async fn parse_file(
     web::Query(info): web::Query<ParseParam>,
-    mut payload: Multipart) -> Result<HttpResponse, Error> {
+    mut payload: Multipart,
+) -> Result<HttpResponse, Error> {
     // iterate over multipart stream
     //  only one file
     let mut file_list = mutlipart_filelist(&mut payload).await?;
@@ -99,17 +100,17 @@ async fn parse_file(
         .ok_or(MyError::BadClientData)?;
 
     let result = engine
-        .parse_from_file(model,info.depth)
+        .parse_from_file(model, info.depth)
         .map_err(|_e| MyError::ParseError)?;
 
     model.seek(SeekFrom::Start(0)).unwrap();
 
-    let original_proto =
-        latex_gen::parse_proto_from_file(model).map_err(|_e| MyError::InternalError)?;
-    let rr = latex_gen::ParseModelResult::new(original_proto, result);
+    // let original_proto =
+    //     latex_gen::parse_proto_from_file(model).map_err(|_e| MyError::InternalError)?;
+    // let rr = latex_gen::ParseModelResult::new(original_proto, result);
 
     let body = once(ok::<_, Error>(web::Bytes::copy_from_slice(
-        rr.json().as_bytes(),
+        result.gen_json().as_bytes(),
     )));
 
     Ok(HttpResponse::Ok().streaming(body))
@@ -123,7 +124,7 @@ struct BackwardParam {
     depth: Option<usize>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize,Debug)]
 struct BackwardAnswer {
     node: usize,
     layer_idx: usize,
@@ -143,23 +144,30 @@ async fn backward(
         .get(&"model".to_string())
         .ok_or(MyError::BadClientData)?
         .clone();
-    let mut latex_map = file_list
-        .get(&"symbols".to_string())
+    let mut raw_symbol = file_list
+        .get(&"symbol".to_string())
         .ok_or(MyError::BadClientData)?
         .clone();
+    
+    model_file.seek(SeekFrom::Start(0)).unwrap();
+    raw_symbol.seek(SeekFrom::Start(0)).unwrap();
 
     let engine = LatexEngine::new();
-    let lr = LatexResult::from_reader(&mut latex_map).map_err(|_e| MyError::ParseError)?;
 
     let model = engine
         .model_from_file(&mut model_file)
         .map_err(|_e| MyError::InternalError)?;
+    
+    let symbol= LatexResult::from_reader(raw_symbol.into_inner()).map_err(|_e| MyError::InternalError)?;
 
-    let last_point = lr.senario.last().cloned().unwrap();
+    let math_ops = latex_gen::LatexEngine::math_op_vecs(&model);
+
+    let last_point = symbol.senario.last().cloned().unwrap();
     let (s, v) = engine
         .gen_each_back(
+            &math_ops,
             &model,
-            &lr,
+            &symbol,
             (info.layer_node, last_point),
             (info.layer_idx, info.weight_idx),
             info.depth,
@@ -174,6 +182,7 @@ async fn backward(
         symbol: s,
         value: v,
     };
+    // println!("{:?}",result);
     Ok(HttpResponse::Ok().json(result))
 }
 
