@@ -10,13 +10,17 @@ fn main() -> TractResult<()> {
 fn test_part<F: AsRef<Path>>(path: F) -> TractResult<()> {
     let mut engine = LatexEngine::new();
 
-    let mut result = engine.parse_from_path(path.as_ref(),Some(4))?;
-    let proto=latex_gen::parse_proto(path)?;
+    let mut result = engine.parse_from_path(path.as_ref(), Some(4))?;
+    let proto = latex_gen::parse_proto(path)?;
     //  println!("{:?}", result.senario);
-    let parse_result = engine.gen_back_total(&mut result ,&proto,(9, 4), Some(3));
+    let parse_result = engine.gen_back_total(&mut result, &proto, (9, 4), Some(3));
     if parse_result.is_ok() {
         for i in 0..result.symbol_map.len() {
-            println!("{}: {}",result.symbol_map[i].as_ref().unwrap().symbol.clone(),result.get_node_backward(i));
+            println!(
+                "{}: {}",
+                result.symbol_map[i].as_ref().unwrap().symbol.clone(),
+                result.get_node_backward(i)
+            );
         }
     } else {
         println!("message: {:?}", parse_result.err());

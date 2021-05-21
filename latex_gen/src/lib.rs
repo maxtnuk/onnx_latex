@@ -9,7 +9,6 @@ use tract_onnx::{
             dummy::Dummy,
             element_wise::ElementWiseOp,
             konst::Const,
-            math,
             source::Source,
         },
         utils::{is_weightable, mathgen_ele_op, FormulKind, MathGen},
@@ -18,7 +17,7 @@ use tract_onnx::{
 };
 
 use rand::prelude::*;
-use std::{any::Any, hash::Hash};
+use std::hash::Hash;
 use std::{fmt::Debug, io::ErrorKind};
 use std::{fmt::Display, io::Read, path::Path};
 use tract_onnx::tract_hir::utils::mathgen_op;
@@ -199,7 +198,11 @@ macro_rules! each_op {
         let mut inner:Vec<Option<Box<dyn MathGen>>>=Vec::new();
         $(
             let t = mathgen_op::<$x>($op);
-            inner.push(t);
+            if let Some(e) = t{
+                inner.push(Some(Box::new(e)));
+            }else{
+                inner.push(None);
+            }
         )*
         inner
        }
@@ -211,7 +214,11 @@ macro_rules! each_ele_op {
         let mut inner:Vec<Option<Box<dyn MathGen>>>=Vec::new();
         $(
             let t = mathgen_ele_op::<$x>($op);
-            inner.push(t);
+            if let Some(e) = t{
+                inner.push(Some(Box::new(e)));
+            }else{
+                inner.push(None);
+            }
         )*
         inner
        }
@@ -375,12 +382,12 @@ impl LatexEngine {
 
         let mut senario = Vec::new();
         self.symbol_map.resize(model.nodes.len(), None);
-        self.math_op_vec.resize(model.nodes.len(),None);
+        self.math_op_vec.resize(model.nodes.len(), None);
 
         for (_step, n) in plan.order.iter().enumerate() {
             let node = model.node(*n);
             println!("node {}", *n);
-            
+
             // println!("node_kind {:?}",node_kind);
             let mt = self.math_op_vec.get_mut(*n).unwrap();
 
@@ -495,11 +502,8 @@ impl LatexEngine {
         latex_result
     }
     fn boxed_mathgen(node: &InferenceNode) -> Box<dyn MathGen> {
-        if let Some(e) = node
-            .op_as::<Box<dyn Expansion>>()
-            .map(|s| Box::new(s.clone()) as Box<dyn MathGen>)
-        {
-            e
+        if let Some(e) = node.op_as::<Box<dyn Expansion>>().cloned() {
+            Box::new(e)
         } else {
             let op = node.op();
             // println!("op detail {:?}",op);
@@ -509,9 +513,8 @@ impl LatexEngine {
                 x
             } else {
                 // elementwise
-                let mut ele = node.op_as::<ElementWiseOp>();
-                let inner = std::mem::take(&mut ele);
-                let inner_ref = inner.unwrap().0.as_ref();
+                let ele = node.op_as::<ElementWiseOp>();
+                let inner_ref = ele.unwrap().0.as_ref();
                 let mut ele_map = each_ele_op!(inner_ref, [Sigmoid]);
                 ele_map.iter_mut().find_map(|s| std::mem::take(s)).unwrap()
             }
@@ -531,9 +534,9 @@ impl LatexEngine {
             .unwrap();
 
         let math_ops = Self::math_op_vecs(&model);
-        
+
         for i in senario.iter() {
-            let node = model.node(*i);
+            let _node = model.node(*i);
             let math_op = math_ops[*i].as_ref();
             let sym_node = symbol_result.symbol_map[*i].as_ref().unwrap();
 
@@ -543,8 +546,14 @@ impl LatexEngine {
                 println!("skip {}", *i);
                 continue;
             }
-            let (s, v) =
-                self.gen_each_back(&math_ops,&model, symbol_result, (*i, *last_point), which, depth)?;
+            let (s, v) = self.gen_each_back(
+                &math_ops,
+                &model,
+                symbol_result,
+                (*i, *last_point),
+                which,
+                depth,
+            )?;
             if let Some(f) = symbol_result.symbol_map[*i].as_mut() {
                 println!("called {},{}", v, s);
                 f.backward_value = v;
@@ -553,8 +562,12 @@ impl LatexEngine {
         }
         Ok(())
     }
-    pub fn math_op_vecs(model: &InferenceModel)->Vec<Box<dyn MathGen>>{
-        model.nodes().iter().map(|x| Self::boxed_mathgen(x)).collect()
+    pub fn math_op_vecs(model: &InferenceModel) -> Vec<Box<dyn MathGen>> {
+        model
+            .nodes()
+            .iter()
+            .map(|x| Self::boxed_mathgen(x))
+            .collect()
     }
     //  return(symbol,value)
     pub fn gen_each_back(
@@ -577,7 +590,7 @@ impl LatexEngine {
                 std::io::ErrorKind::NotFound,
                 "not found index",
             ))?;
-        let node = model.node(index);
+        let _node = model.node(index);
 
         let math_op = math_opvec[index].as_ref();
 
@@ -696,7 +709,7 @@ impl LatexEngine {
             *mt = Some(inner.clone());
             inner
         };
-        
+
         let op_name = node.op().name().to_string();
         // println!("op_name {}", op_name);
         let n_name_split: Vec<&str> = n_name.split(".").collect();

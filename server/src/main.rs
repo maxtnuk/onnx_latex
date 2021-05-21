@@ -124,7 +124,7 @@ struct BackwardParam {
     depth: Option<usize>,
 }
 
-#[derive(Serialize,Debug)]
+#[derive(Serialize, Debug)]
 struct BackwardAnswer {
     node: usize,
     layer_idx: usize,
@@ -148,7 +148,7 @@ async fn backward(
         .get(&"symbol".to_string())
         .ok_or(MyError::BadClientData)?
         .clone();
-    
+
     model_file.seek(SeekFrom::Start(0)).unwrap();
     raw_symbol.seek(SeekFrom::Start(0)).unwrap();
 
@@ -157,8 +157,9 @@ async fn backward(
     let model = engine
         .model_from_file(&mut model_file)
         .map_err(|_e| MyError::InternalError)?;
-    
-    let symbol= LatexResult::from_reader(raw_symbol.into_inner()).map_err(|_e| MyError::InternalError)?;
+
+    let symbol =
+        LatexResult::from_reader(raw_symbol.into_inner()).map_err(|_e| MyError::InternalError)?;
 
     let math_ops = latex_gen::LatexEngine::math_op_vecs(&model);
 

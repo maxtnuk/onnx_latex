@@ -2,7 +2,11 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 use serde::Serialize;
-use tract_core::{dyn_clone::{self, DynClone, clone_box, clone_trait_object}, internal::ElementWiseMiniOp, model::Op, ops::{
+use tract_core::{
+    dyn_clone::{self, clone_box, clone_trait_object, DynClone},
+    internal::ElementWiseMiniOp,
+    model::Op,
+    ops::{
         array::{Gather, Pad},
         cnn::{MaxPool, PoolSpec, SumPool},
         dummy::Dummy,
@@ -13,14 +17,15 @@ use tract_core::{dyn_clone::{self, DynClone, clone_box, clone_trait_object}, int
         math::{Add, Max, Min},
         nn::Sigmoid,
         unimpl::UnimplementedOp,
-    }};
+    },
+};
 
 use crate::ops::{
     array::{ConstantLike, EyeLike},
     binary::Nary,
 };
 
-pub trait MathGen:DynClone {
+pub trait MathGen: DynClone {
     fn get_original_type(&self) -> FormulKind {
         let result = FormulKind::Undefined;
         // println!("default called: {:?}",result);
@@ -59,7 +64,6 @@ pub trait MathGen:DynClone {
 
 dyn_clone::clone_trait_object!(MathGen);
 
-
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum FormulKind {
     Activation,
@@ -85,7 +89,9 @@ fn get_extra_symbol(original: String) -> FormulKind {
 }
 pub fn is_weightable(form: FormulKind) -> Option<FormulKind> {
     match form {
-        FormulKind::Function | FormulKind::Cnn | FormulKind::MaxPool | FormulKind::SumPool=> Some(form) ,
+        FormulKind::Function | FormulKind::Cnn | FormulKind::MaxPool | FormulKind::SumPool => {
+            Some(form)
+        }
         _ => None,
     }
 }
@@ -125,15 +131,14 @@ pub fn gen_symbol(symbol: Option<String>, n_type: FormulKind, idx: usize) -> Str
         }
     }
 }
-pub fn mathgen_op<T: Op + MathGen + Clone>(op: &dyn Op) -> Option<Box<dyn MathGen>> {
-    op.downcast_ref::<T>()
-        .map(|s| Box::new(s.clone()) as Box<dyn MathGen>)
+
+pub fn mathgen_op<T: Op + MathGen + Clone>(op: &dyn Op) -> Option<impl MathGen> {
+    op.downcast_ref::<T>().cloned()
 }
 pub fn mathgen_ele_op<T: ElementWiseMiniOp + MathGen + Clone>(
     op: &dyn ElementWiseMiniOp,
-) -> Option<Box<dyn MathGen>> {
-    op.downcast_ref::<T>()
-        .map(|s| Box::new(s.clone()) as Box<dyn MathGen>)
+) -> Option<impl MathGen> {
+    op.downcast_ref::<T>().cloned()
 }
 
 impl MathGen for Dummy {}
