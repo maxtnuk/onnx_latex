@@ -122,18 +122,18 @@ impl SymbolLibrary {
         form.iter().filter_map(|x| x.gen_symbol(target).ok()).next()
     }
 
-    fn gen_w_symbol_inner(&self, target: String, index: (usize, usize), deeper: bool) -> String {
+    fn gen_w_symbol_inner(&self, target: String, indexes: &Indexes, deeper: bool) -> String {
         let (_, _, underform) = self.get_symbol("_Under").unwrap();
         let under_splits = symbol_split(underform.formul.as_str()).unwrap();
         let (_, _, weightform) = self.get_symbol("_Weight").unwrap();
         let weight_splits = symbol_split(weightform.formul.as_str()).unwrap();
 
-        let func_name = only_inputs_symbol_parts(
-            under_splits.clone(),
-            vec![target, format!("({})", index.0.to_string())],
-        );
-        let between_symbol =
-            only_inputs_symbol_parts(weight_splits.clone(), vec![func_name, index.1.to_string()]);
+        // func section
+        let c = Self::continous_index(indexes.func_idx.iter().map(|x| x.to_string()).collect());
+        let func_name = only_inputs_symbol_parts(under_splits.clone(), vec![target, c]);
+        // weight_name
+        let w_c = Self::continous_index(indexes.weight_idx.iter().map(|x| x.to_string()).collect());
+        let between_symbol = only_inputs_symbol_parts(weight_splits.clone(), vec![func_name, w_c]);
         if deeper {
             only_inputs_symbol_parts(under_splits.clone(), vec!["w".to_string(), between_symbol])
         } else {
@@ -145,23 +145,46 @@ impl SymbolLibrary {
         let splits = symbol_split(e_symbol.as_str()).unwrap();
         insert_symbol_parts(splits, target, Vec::new(), "".to_string())
     }
+    // with index
+    fn continous_index(proper_symbol: Vec<String>) -> String {
+        let mut result = String::new();
+        result += "(";
+        for i in proper_symbol.iter() {
+            result += &format!("{},", i);
+        }
+        result += ")";
+        result
+    }
+    // gen proper symbol with level
     fn get_p0p1(
         &self,
         level: usize,
-        weight: (usize, usize),
+        indexes: &Indexes,
         last_symbol: String,
+        proper_symbol: &[String],
+        many: usize,
     ) -> (String, String) {
         if level == 0 {
-            let p0_temp = format!("({})", weight.0);
-            let p1_temp = self.gen_w_symbol_inner(last_symbol, weight, false);
+            // last symbol
+            let p0_temp =
+                Self::continous_index(indexes.func_idx.iter().map(|x| x.to_string()).collect());
+            let p1_temp = self.gen_w_symbol_inner(last_symbol, indexes, false);
             (p0_temp, p1_temp)
         } else {
+            let p0_num = level - 1;
+            let p1_num = if level > 1 { level - 2 } else { 0 };
+
+            let cf_func = |_x: &[String], n| {
+                (0..many)
+                    .map(|s| format!("{}n_{{{}}}", proper_symbol[s], n))
+                    .collect()
+            };
             (
-                format!("n_{}", level - 1),
+                Self::continous_index(cf_func(proper_symbol, p0_num)),
                 if level > 1 {
-                    format!("n_{}", level - 2)
+                    Self::continous_index(cf_func(proper_symbol, p1_num))
                 } else {
-                    format!("({})", weight.0)
+                    Self::continous_index(indexes.func_idx.iter().map(|x| x.to_string()).collect())
                 },
             )
         }
@@ -171,7 +194,7 @@ impl SymbolLibrary {
 pub enum DiffChainNode {
     Weightable(usize, String),
     UnWeightable(usize, String),
-    Sum(Box<DiffChainNode>, usize),
+    Sum(Box<DiffChainNode>, Vec<usize>),
     Chain(Vec<DiffChainNode>),
     Not,
 }
@@ -291,6 +314,19 @@ pub fn model_info<P: AsRef<Path>>(path: P) -> TractResult<()> {
         println!();
     }
     Ok(())
+}
+// only for store func index and weight index
+pub struct Indexes {
+    weight_idx: Vec<usize>,
+    func_idx: Vec<usize>,
+}
+impl Indexes {
+    pub fn new(w: Vec<usize>, f: Vec<usize>) -> Self {
+        Indexes {
+            weight_idx: w,
+            func_idx: f,
+        }
+    }
 }
 
 impl LatexEngine {
@@ -524,7 +560,7 @@ impl LatexEngine {
         &self,
         symbol_result: &mut LatexResult,
         model_proto: &ModelProto,
-        which: (usize, usize),
+        input_indexs: Indexes,
         depth: Option<usize>,
     ) -> Result<(), std::io::Error> {
         let senario = symbol_result.senario.clone();
@@ -551,7 +587,7 @@ impl LatexEngine {
                 &model,
                 symbol_result,
                 (*i, *last_point),
-                which,
+                &input_indexs,
                 depth,
             )?;
             if let Some(f) = symbol_result.symbol_map[*i].as_mut() {
@@ -576,7 +612,7 @@ impl LatexEngine {
         model: &InferenceModel,
         symbol_result: &LatexResult,
         n_indxs: (usize, usize),
-        which: (usize, usize),
+        input_indexs: &Indexes,
         depth: Option<usize>,
     ) -> Result<(String, String), std::io::Error> {
         let (index, last_point) = n_indxs;
@@ -594,18 +630,18 @@ impl LatexEngine {
 
         let math_op = math_opvec[index].as_ref();
 
-        let n_shape = shape
+        let _n_shape = shape
             .get(1)
             .unwrap_or(shape.get(0).ok_or(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "not found shape 0",
             ))?);
-        if *n_shape <= which.0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "which's size exceed shape range",
-            ));
-        }
+        // if *n_shape <= which.0 {
+        //     return Err(std::io::Error::new(
+        //         std::io::ErrorKind::InvalidInput,
+        //         "which's size exceed shape range",
+        //     ));
+        // }
         let sym_node = symbol_result.symbol_map[index].as_ref().unwrap();
         let kind = math_op.get_symbol_type(sym_node.extra_symbol.clone());
         let start_node = if is_weightable(kind).is_some() {
@@ -615,7 +651,6 @@ impl LatexEngine {
             DiffChainNode::UnWeightable(index, symbol.clone())
         };
 
-        // suppose total
         let expand_value = self.expand_diff_symbol(
             symbol_result.symbol_map.as_ref(),
             model,
@@ -626,13 +661,14 @@ impl LatexEngine {
         let e_option = depth
             .map(|x| ErrorResultTo::Innner(x))
             .unwrap_or(ErrorResultTo::Total);
-
-        let backward = self.gen_backward_value(&expand_value, &model, e_option, which);
+        let backward = self.gen_backward_value(&expand_value, &model, e_option, input_indexs);
         let e_symbol = self
             .symbol_library
             .gen_error_symbol(vec!["total".to_string(), "".to_string()]);
 
-        let down_symbol = self.symbol_library.gen_w_symbol_inner(symbol, which, true);
+        let down_symbol = self
+            .symbol_library
+            .gen_w_symbol_inner(symbol, input_indexs, true);
 
         Ok((math_op.gen_backward(e_symbol, down_symbol), backward))
     }
@@ -766,9 +802,9 @@ impl LatexEngine {
                                 error_node,
                             );
                             let size_check = if in_node.output_shape.len() > 1 {
-                                in_node.output_shape.iter().skip(1).product()
+                                in_node.output_shape.split_at(1).1.to_vec()
                             } else {
-                                in_node.output_shape[0]
+                                vec![in_node.output_shape[0]]
                             };
                             sum_it.push(DiffChainNode::Sum(Box::new(sum), size_check));
                             sum_it.append(&mut v_clone);
@@ -791,9 +827,9 @@ impl LatexEngine {
                                 error_node,
                             );
                             let size_check = if in_node.output_shape.len() > 1 {
-                                in_node.output_shape.iter().skip(1).product()
+                                in_node.output_shape.split_at(1).1.to_vec()
                             } else {
-                                in_node.output_shape[0]
+                                vec![in_node.output_shape[0]]
                             };
                             sum_it.push(DiffChainNode::Sum(Box::new(sum), size_check));
                             sum_it.append(&mut v_clone);
@@ -819,9 +855,9 @@ impl LatexEngine {
                         x @ DiffChainNode::Weightable(_, _) => {
                             let in_node = symbol_map[into_node_idx].as_ref().unwrap();
                             let size_check = if in_node.output_shape.len() > 1 {
-                                in_node.output_shape.iter().skip(1).product()
+                                in_node.output_shape.split_at(1).1.to_vec()
                             } else {
-                                in_node.output_shape[0]
+                                vec![in_node.output_shape[0]]
                             };
                             let d = self.expand_diff_symbol(symbol_map, model, x, error_node);
                             already_rec = true;
@@ -886,13 +922,21 @@ impl LatexEngine {
         level: usize,
         final_model_end: ErrorResultTo,
         pre_chain: Option<String>,
-        weight: (usize, usize),
+        input_indexs: &Indexes,
+        prev_proper_symbols: &Vec<String>,
+        prev_size: usize,
     ) -> String {
         let result = match *target {
-            DiffChainNode::Sum(ref d, many) => match final_model_end {
+            DiffChainNode::Sum(ref d, ref many) => match final_model_end {
                 ErrorResultTo::Innner(i) if i == level => {
                     let s = pre_chain.unwrap();
-                    let (p0_str, _p1_str) = self.symbol_library.get_p0p1(level, weight, s.clone());
+                    let (p0_str, _p1_str) = self.symbol_library.get_p0p1(
+                        level,
+                        input_indexs,
+                        s.clone(),
+                        prev_proper_symbols,
+                        prev_size,
+                    );
                     let last_node = only_inputs_symbol_parts(
                         back_package[4].clone(),
                         vec![s.clone(), p0_str.clone()],
@@ -907,6 +951,7 @@ impl LatexEngine {
                     only_inputs_symbol_parts(back_package[0].clone(), vec![e_sym, a_sym.clone()])
                 }
                 _ => {
+                    let (edi_symbols, _) = prev_proper_symbols.split_at(many.len());
                     let inner = self.rec_backward(
                         &d,
                         back_package,
@@ -914,15 +959,36 @@ impl LatexEngine {
                         level + 1,
                         final_model_end,
                         pre_chain,
-                        weight,
+                        input_indexs,
+                        prev_proper_symbols,
+                        many.len(),
                     );
-                    let start_symbol = format!("n_{}", level);
-                    let end_symbol = (many - 1).to_string();
-                    except_self_symbol_parts(
-                        back_package[1].clone(),
-                        vec![inner],
-                        vec![start_symbol, end_symbol],
-                    )
+                    let mut result = String::new();
+                    // fit to shape
+                    let start_symbols: Vec<String> = edi_symbols
+                        .iter()
+                        .map(|s| format!("{}n_{{{}}}", s, level))
+                        .collect();
+                    for (i, s) in many.iter().enumerate() {
+                        let end_symbol = (*s - 1).to_string();
+                        if i < (many.len() - 1) {
+                            let outer_sigma = except_self_symbol_parts(
+                                back_package[5].clone(),
+                                vec![],
+                                vec![start_symbols[i].clone(), end_symbol],
+                            );
+                            result += &outer_sigma;
+                        } else {
+                            // last
+                            let outer_sigma = except_self_symbol_parts(
+                                back_package[1].clone(),
+                                vec![inner.clone()],
+                                vec![start_symbols[i].clone(), end_symbol],
+                            );
+                            result += &outer_sigma;
+                        }
+                    }
+                    result
                 }
             },
             DiffChainNode::Chain(ref d) => {
@@ -940,8 +1006,13 @@ impl LatexEngine {
 
                 match d[0].clone() {
                     DiffChainNode::Weightable(_i, ref s) => {
-                        let (p0_str, p1_str) =
-                            self.symbol_library.get_p0p1(level, weight, s.clone());
+                        let (p0_str, p1_str) = self.symbol_library.get_p0p1(
+                            level,
+                            input_indexs,
+                            s.clone(),
+                            prev_proper_symbols,
+                            prev_size,
+                        );
                         let last_node = only_inputs_symbol_parts(
                             back_package[4].clone(),
                             vec![s.clone(), p0_str.clone()],
@@ -971,9 +1042,13 @@ impl LatexEngine {
                         only_inputs_symbol_parts(back_package[2].clone(), vec![e_a, a_p])
                     }
                     DiffChainNode::UnWeightable(_i, ref s) => {
-                        let (p0_str, p1_str) =
-                            self.symbol_library
-                                .get_p0p1(level, weight, d1_symbol.clone().unwrap());
+                        let (p0_str, p1_str) = self.symbol_library.get_p0p1(
+                            level,
+                            input_indexs,
+                            d1_symbol.clone().unwrap(),
+                            prev_proper_symbols,
+                            prev_size,
+                        );
                         let last_node = only_inputs_symbol_parts(
                             back_package[4].clone(),
                             vec![s.clone(), p0_str.clone()],
@@ -1019,12 +1094,19 @@ impl LatexEngine {
                             level,
                             final_model_end,
                             d1_symbol.clone(),
-                            weight,
+                            input_indexs,
+                            prev_proper_symbols,
+                            prev_size,
                         );
 
                         if let Some(ref d2) = d2_symbol {
-                            let (p0_str, p1_str) =
-                                self.symbol_library.get_p0p1(level, weight, d2.clone());
+                            let (p0_str, p1_str) = self.symbol_library.get_p0p1(
+                                level,
+                                input_indexs,
+                                d2.clone(),
+                                prev_proper_symbols,
+                                prev_size,
+                            );
                             let p_sym = only_inputs_symbol_parts(
                                 back_package[4].clone(),
                                 vec![to_insert, p1_str.clone()],
@@ -1051,8 +1133,10 @@ impl LatexEngine {
                         } else {
                             let (p0_str, p1_str) = self.symbol_library.get_p0p1(
                                 level,
-                                weight,
+                                input_indexs,
                                 d1_symbol.clone().unwrap(),
+                                prev_proper_symbols,
+                                prev_size,
                             );
                             let p_sym = only_inputs_symbol_parts(
                                 back_package[4].clone(),
@@ -1089,7 +1173,7 @@ impl LatexEngine {
         target: &DiffChainNode,
         model: &InferenceModel,
         final_model_end: ErrorResultTo,
-        weight: (usize, usize),
+        input_indexs: &Indexes,
     ) -> String {
         let (_, _, form) = self.symbol_library.get_symbol("_Diff").unwrap();
         let d_splits = symbol_split(form.formul.as_str()).unwrap();
@@ -1101,9 +1185,29 @@ impl LatexEngine {
         let c3_splits = symbol_split(c3form.formul.as_str()).unwrap();
         let (_, _, underform) = self.symbol_library.get_symbol("_Under").unwrap();
         let under_splits = symbol_split(underform.formul.as_str()).unwrap();
+        let (_, _, sum_w) = self.symbol_library.get_symbol("_Sum_w").unwrap();
+        let sum_w_splits = symbol_split(sum_w.formul.as_str()).unwrap();
 
-        let vv = vec![d_splits, s_splits, c2_splits, c3_splits, under_splits];
-        self.rec_backward(target, &vv, model, 0, final_model_end, None, weight)
+        let vv = vec![
+            d_splits,
+            s_splits,
+            c2_splits,
+            c3_splits,
+            under_splits,
+            sum_w_splits,
+        ];
+        let propers: Vec<String> = ["c", "h", "w", "b"].iter().map(|s| s.to_string()).collect();
+        self.rec_backward(
+            target,
+            &vv,
+            model,
+            0,
+            final_model_end,
+            None,
+            input_indexs,
+            &propers,
+            0,
+        )
     }
 }
 

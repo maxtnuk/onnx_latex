@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use latex_gen::{LatexEngine, TractResult};
+use latex_gen::{Indexes, LatexEngine, TractResult};
 
 fn main() -> TractResult<()> {
     // let result = returns_a_trait_object();
@@ -13,7 +13,8 @@ fn test_part<F: AsRef<Path>>(path: F) -> TractResult<()> {
     let mut result = engine.parse_from_path(path.as_ref(), Some(4))?;
     let proto = latex_gen::parse_proto(path)?;
     //  println!("{:?}", result.senario);
-    let parse_result = engine.gen_back_total(&mut result, &proto, (9, 4), Some(3));
+    let indexes = Indexes::new(vec![10, 20, 30], vec![3, 4, 5]);
+    let parse_result = engine.gen_back_total(&mut result, &proto, indexes, Some(3));
     if parse_result.is_ok() {
         for i in 0..result.symbol_map.len() {
             println!(
