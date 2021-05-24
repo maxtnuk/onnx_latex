@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@react-three/drei": "^5.1.7",
     "@react-three/fiber": "^6.2.0",
     "@testing-library/jest-dom": "^5.12.0",
     "@testing-library/react": "^11.2.6",
@@ -12,9 +13,14 @@
     "react": "^17.0.2",
     "react-digraph": "^8.0.0-beta.2",
     "react-dom": "^17.0.2",
+    "react-redux": "^7.2.4",
     "react-responsive": "^8.2.0",
     "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.3",
+    "react-side-pane": "^2.3.4",
+    "react-sliding-side-panel": "^2.0.3",
+    "react-table": "^7.7.0",
+    "redux": "^4.1.0",
     "styled-components": "^5.2.3",
     "three": "^0.128.0",
     "web-vitals": "^1.1.1"

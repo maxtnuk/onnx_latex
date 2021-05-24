@@ -1,11 +1,21 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import './css/index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { Provider  } from 'react-redux';
+import { createStore } from 'redux';
+import rootReducer from 'state/store';
+import { applyMiddleware } from 'redux';
+import loggerMiddleware from 'state/middleware';
+import "css/index.css"
 
+const store= createStore(rootReducer,applyMiddleware(loggerMiddleware))
 ReactDOM.render(
-    <App />,
+  <React.StrictMode>
+    <Provider store={store}>
+      <App />
+    </Provider>
+  </React.StrictMode>,
   document.getElementById('root')
 );
 
