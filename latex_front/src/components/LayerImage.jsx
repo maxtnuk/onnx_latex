@@ -42,12 +42,19 @@ function LayerImage(props) {
     onClick={(event) => {
       dispatch(choose_layer(g_idx,l_idx))
     }}
-    onPointerOver={(event) => setHover(true)}
-    onPointerOut={(event) => setHover(false)}
+    onPointerOver={(event) => {
+      // if (!hovered){
+      //   event.stopPropagation()
+      // }
+      setHover(true)}
+    }
+    onPointerOut={(event) => {
+      setHover(false)
+    }}
     geometry={edges}
     scale={active? 1.2:1}
     >
-        <lineBasicMaterial attach="material" color={hovered? "red":"black"}/>
+      <lineBasicMaterial attach="material" color={hovered? "red":"black"}/>
     </lineSegments>
     </>
   )
