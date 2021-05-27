@@ -2,11 +2,12 @@ import * as React from 'react';
 import { extend, useThree, useFrame } from '@react-three/fiber';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls';
 import * as THREE from 'three';
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import { useEffect, useState } from 'react';
 import { MapControls } from '@react-three/drei'
 import { zoom_camera } from 'api/camera';
 import { BASE } from './ZoomBar';
+import {reset_camera } from 'api/camera'
 
 // extend THREE to include TrackballControls
 extend({ TrackballControls });
@@ -36,11 +37,18 @@ function selfzoomcamera(self_scope,z){
   self_scope.object.updateProjectionMatrix();
 }
 
+function resetcamera(self_scope){
+  self_scope.reset();
+  self_scope.update();
+}
+
 const Controls = ({ }) => {
   const controls = React.useRef();
   const { camera, gl } = useThree();
  
   const camera_vec = useSelector(state => state.camera)
+  const dispatch = useDispatch();
+
   useFrame(() => {
     // update the view as the vis is interacted with
     // camera.x+=camera_vec.x/10
@@ -59,10 +67,12 @@ const Controls = ({ }) => {
   // const origin_zoom=controls.current.zoom;
   // const max_zoom=origin_zoom*();
   // const min_zoom=origin_zoom/BASE;
-  // useEffect(() => {
-    
-  // }, [camera_vec.zoom])
-
+  useEffect(() => {
+    if (camera_vec.r==true){
+      resetcamera(controls.current)
+      dispatch(reset_camera(false))
+    }
+  }, [camera_vec.r])
 
   return (
     <trackballControls

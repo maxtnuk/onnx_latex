@@ -1,7 +1,6 @@
 import * as THREE from "three";
 // import { SVGRenderer } from '../resource/SVGRenderer'
 import React from "react";
-import LayerImage from "components/LayerImage";
 import { MathJaxContext } from "better-react-mathjax";
 import { MathJax } from "better-react-mathjax";
 import { Canvas, useFrame } from "@react-three/fiber";
@@ -13,12 +12,16 @@ import { SidePane } from "react-side-pane";
 import { useSelector } from "react-redux";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import mock_layer from "mock/LayersMock";
+import mock_groups from "mock/GroupLayerMock";
 import { choose_layer } from "api/layer";
 import { Joystick } from "react-joystick-component";
 import { camera_vec } from "api/camera";
 import ZoomBar from "components/ZoomBar";
-
+import { Button } from "@material-ui/core";
+import { style } from "@material-ui/system";
+import { reset_camera } from "api/camera";
+import GroupLayer from "components/GroupLayers";
+import { get_group_width } from "components/GroupLayers";
 const MainaContainer = styled.div`
   overflow: hidden;
   position: fixed;
@@ -50,23 +53,10 @@ const MenuController = styled.div`
 `;
 
 function MainPage() {
-  let items = [];
-  let mock_data = mock_layer;
-  const ratio = 10;
+  let group_data = mock_groups;
 
-  for (const i of mock_data) {
-    items.push(
-      <>
-        <LayerImage
-          d3s={[i.channel / ratio, i.width / ratio, i.height / ratio]}
-          position={[i.layer_num * 3, 0, 0]}
-          l_idx={i.layer_num}
-          g_idx={0}
-        />
-      </>
-    );
-  }
   const [layerInfo, setlayerInfo] = useState({
+    group_idx: -1,
     layer_num: -1,
     channel: -1,
     width: -1,
@@ -78,14 +68,37 @@ function MainPage() {
   const dispatch = useDispatch();
 
   const [open, setopen] = useState(false);
-
   useEffect(() => {
-    let l_num = layer.layer_idx;
+    const l_num = layer.layer_idx;
+    const g_num =layer.group_idx;
     if (l_num != -1) {
-      setlayerInfo(mock_data[l_num]);
+      const layer_data=(group_data[g_num].layers)[l_num];
+      setlayerInfo({
+        ...layer_data,
+        group_idx: layer.group_idx,
+        layer_num: l_num,
+      });
       setopen(true);
     }
   }, [layer]);
+
+  let group_datas = []
+  let before_content=0;
+  const ratio=10;
+  const term = 5;
+  for (const g of group_data){
+    let group_width=get_group_width(g.layers,ratio);
+    group_datas.push(<>
+      <GroupLayer
+        items={g.layers}
+        ratio={ratio}
+        group_idx={g.group}
+        base_position={before_content}
+      >
+      </GroupLayer>
+    </>)
+    before_content+=(group_width+term)
+  }
 
 return (
   <>
@@ -96,8 +109,11 @@ return (
             <Controls />
             <ambientLight />
             <pointLight position={[10, 10, 10]} />
-            {/* s<Plane args={[10, 10]} color='black' /> */}
-            {items}
+            <GroupLayer
+              items={group_data[0].layers}
+              ratio={ratio}
+              group_idx={0}
+              base={0}/>
           </ReduxBridge>
         </Canvas>
       </VisContainer>
@@ -132,13 +148,21 @@ return (
           move={(mv) => {
             const x = mv.x;
             const y = mv.y;
-            dispatch(camera_vec(x, y, 0));
+            dispatch(camera_vec(x, y));
           }}
           stop={() => {
-            dispatch(camera_vec(0, 0, 0));
+            dispatch(camera_vec(0, 0));
           }}
         ></Joystick>
-       <ZoomBar/> 
+       {/* <ZoomBar/>  */}
+        <Button variant="contained" color="yellow"
+          onClick={(event) => {
+            dispatch(reset_camera(true))
+          }}
+          style={{...style,margin: "10px"}}
+        >
+          Reset
+        </Button>
       </MenuController>
     </MainaContainer>
   </>
