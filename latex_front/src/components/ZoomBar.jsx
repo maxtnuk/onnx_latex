@@ -20,43 +20,11 @@ const ZoomDiv = styled.div`
     padding: 10px;
 `;
 
-const ZoomTrackContainer = styled.div`
-    height: 36px;
-    display: flex;
-    width: 100%;
-`;
-
-const ZoomThumb = styled.div`
-    height: 42px;
-    width: 42px;
-    borderRadius: 4px;
-    backgroundColor: #FFF;
-    display: flex;
-    justifyContent: center;
-    alignItems: center;
-    boxShadow: 0px 2px 6px #AAA;
-`;
-
-
-
 function ZoomBar() {
     const direction = Direction.Up;
     const [value, setvalue] = useState(BASE)
     const dispatch = useDispatch(state => state.camera)
 
-    const ZoomTrack = styled.div`
-        height: 100px;
-        width: 10px;
-        borderRadius: 4px;
-        background: ${getTrackBackground({
-            values: [value],
-            colors: ["#548BF4", "#ccc"],
-            min: MIN,
-            max: MAX,
-            direction: direction
-        })};
-        alignSelf: center; 
-    `;
     return (
         <ZoomDiv>
             <Range
@@ -70,22 +38,59 @@ function ZoomBar() {
                     dispatch(zoom_camera(values[0]))
                 }}
                 renderTrack={({ props, children }) => (
-                    <ZoomTrackContainer>
-                        <ZoomTrack>
+                    <div
+                        onMouseDown={props.onMouseDown}
+                        onTouchStart={props.onTouchStart}
+                        style={{
+                            ...props.style,
+                            height: "100px",
+                            display: "flex",
+                            width: "100%"
+                        }}
+                    >
+                        <div
+                            ref={props.ref}
+                            style={{
+                                height: "100%",
+                                width: "5px",
+                                borderRadius: "4px",
+                                background: getTrackBackground({
+                                    values: [value],
+                                    colors: ["#548BF4", "#ccc"],
+                                    min: MIN,
+                                    max: MAX,
+                                    direction: direction
+                                }),
+                                alignSelf: "center"
+                            }}
+                        >
                             {children}
-                        </ZoomTrack>
-                    </ZoomTrackContainer>
+                        </div>
+                    </div>
                 )}
                 renderThumb={({ props, isDragged }) => (
-                    <ZoomThumb>
+                    <div
+                        {...props}
+                        style={{
+                            ...props.style,
+                            height: "42px",
+                            width: "42px",
+                            borderRadius: "4px",
+                            backgroundColor: "#FFF",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            boxShadow: "0px 2px 6px #AAA"
+                        }}
+                    >
                         <div
                             style={{
                                 height: "16px",
-                                width: "10px",
+                                width: "5px",
                                 backgroundColor: isDragged ? "#548BF4" : "#CCC"
                             }}
                         />
-                    </ZoomThumb>
+                    </div>
                 )}
             />
         </ZoomDiv>
