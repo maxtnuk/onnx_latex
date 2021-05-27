@@ -1,14 +1,16 @@
 import React from "react";
 import * as THREE from "three"
-import {useEffect, useRef,useState} from "react"
+import { useEffect, useRef, useState } from "react"
 import { useFrame } from '@react-three/fiber'
-import { useDispatch,useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { choose_layer } from "api/layer";
+import { Box } from "@react-three/drei";
 
-function LayerImage(props) { 
-  const l_idx=props.l_idx 
-  const g_idx=props.g_idx
-  const d3s=props.d3s
+
+function LayerImage(props) {
+  const l_idx = props.l_idx
+  const g_idx = props.g_idx
+  const d3s = props.d3s
   // This reference will give us direct access to the THREE.Mesh object
   const mesh = useRef()
   // Set up state for the hovered and active state
@@ -17,46 +19,53 @@ function LayerImage(props) {
 
   const geometry = new THREE.BoxGeometry(d3s[0], d3s[1], d3s[2]);
 
-  const edges = new THREE.EdgesGeometry( geometry );
+  const edges = new THREE.EdgesGeometry(geometry);
 
   const dispatch = useDispatch()
   //  get value
   const layer = useSelector(state => state.layer)
 
   useEffect(() => {
-    if (layer.layer_idx==-1){
+    if (layer.layer_idx == -1) {
       setActive(false)
-    }else{
-      setActive(layer.group_idx==g_idx&&layer.layer_idx==l_idx)
+    } else {
+      setActive(layer.group_idx == g_idx && layer.layer_idx == l_idx)
     }
-    
+
   }, [layer])
   // setActive(false)
- 
+
   // Return the view, these are regular Threejs elements expressed in JSX
   return (
-    <>
-    <lineSegments
-    {...props}
-    ref={mesh}
-    onClick={(event) => {
-      dispatch(choose_layer(g_idx,l_idx))
-    }}
-    onPointerOver={(event) => {
-      // if (!hovered){
-      //   event.stopPropagation()
-      // }
-      setHover(true)}
-    }
-    onPointerOut={(event) => {
-      setHover(false)
-    }}
-    geometry={edges}
-    scale={active? 1.2:1}
+    <mesh
+      {...props}
+      onPointerOver={(event) => {
+        // if (!hovered){
+        //   event.stopPropagation()
+        // }
+        setHover(true)
+      }
+      }
+      onPointerOut={(event) => {
+        setHover(false)
+      }}
+      onClick={(event) => {
+        dispatch(choose_layer(g_idx, l_idx))
+      }}
     >
-      <lineBasicMaterial attach="material" color={hovered? "red":"black"}/>
-    </lineSegments>
-    </>
+      <lineSegments
+        ref={mesh}
+        geometry={edges}
+        scale={active ? 1.2 : 1}
+      >
+        <lineBasicMaterial attach="material" color={hovered ? "blue" : "black"} />
+      </lineSegments>
+      <Box
+        scale={active ? 1.2 : 1}
+        args={d3s}>
+        <meshPhongMaterial color="#3ac019" opacity={0.5} transparent={true}/>
+      </Box>
+    </mesh>
   )
 }
 export default LayerImage;

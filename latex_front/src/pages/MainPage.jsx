@@ -13,10 +13,11 @@ import { SidePane } from "react-side-pane";
 import { useSelector } from "react-redux";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import mock_layer from "./LayersMock";
+import mock_layer from "mock/LayersMock";
 import { choose_layer } from "api/layer";
 import { Joystick } from "react-joystick-component";
 import { camera_vec } from "api/camera";
+import ZoomBar from "components/ZoomBar";
 
 const MainaContainer = styled.div`
   overflow: hidden;
@@ -38,13 +39,14 @@ const SideComponent = styled.div`
 const MenuController = styled.div`
   position: absolute;
   border-style: solid;
-  border-color: black;
+  border-color: #12b65c;
   bottom: 0;
   left: 0;
   background: white;
   display: flex;
   flex-direction: column-reverse;
   margin: 10px;
+  pointer-events: null;
 `;
 
 function MainPage() {
@@ -76,7 +78,6 @@ function MainPage() {
   const dispatch = useDispatch();
 
   const [open, setopen] = useState(false);
-  const [camerapos, setcamerapos] = useState([0, 0, 0]);
 
   useEffect(() => {
     let l_num = layer.layer_idx;
@@ -86,60 +87,61 @@ function MainPage() {
     }
   }, [layer]);
 
-  return (
-    <>
-      <MainaContainer>
-        <VisContainer>
-          <Canvas camera={{ position: [0, 0, 20] }}>
-            <ReduxBridge>
-              <Controls />
-              <ambientLight />
-              <pointLight position={[10, 10, 10]} />
-              {/* s<Plane args={[10, 10]} color='black' /> */}
-              {items}
-            </ReduxBridge>
-          </Canvas>
-        </VisContainer>
-        <SidePane
-          open={open}
-          width={30}
-          onClose={() => {}}
-          hideBackdrop={true}
-          disableBackdropClick={false}
-          disableRestoreFocus={false}
-        >
-          <SideComponent>
-            <button
-              onClick={() => {
-                dispatch(choose_layer(-1, -1));
-                setopen(false);
-              }}
-            >
-              Close
-            </button>
-            <h1>Layer num: {layerInfo.layer_num}</h1>
-            <h2>layer channel: {layerInfo.channel}</h2>
-            <h2>layer width: {layerInfo.width}</h2>
-            <h2>layer height: {layerInfo.height}</h2>
-          </SideComponent>
-        </SidePane>
-        <MenuController>
-          <Joystick
-            size={100}
-            baseColor="red"
-            stickColor="blue"
-            move={(mv) => {
-              const x = mv.x;
-              const y = mv.y;
-              dispatch(camera_vec(x, y, 0));
+return (
+  <>
+    <MainaContainer>
+      <VisContainer>
+        <Canvas camera={{ position: [0, 0, 20] }}>
+          <ReduxBridge>
+            <Controls />
+            <ambientLight />
+            <pointLight position={[10, 10, 10]} />
+            {/* s<Plane args={[10, 10]} color='black' /> */}
+            {items}
+          </ReduxBridge>
+        </Canvas>
+      </VisContainer>
+      <SidePane
+        open={open}
+        width={30}
+        onClose={() => {}}
+        hideBackdrop={true}
+        disableBackdropClick={false}
+        disableRestoreFocus={false}
+      >
+        <SideComponent>
+          <button
+            onClick={() => {
+              dispatch(choose_layer(-1, -1));
+              setopen(false);
             }}
-            stop={() => {
-              dispatch(camera_vec(0, 0, 0));
-            }}
-          ></Joystick>
-        </MenuController>
-      </MainaContainer>
-    </>
-  );
+          >
+            Close
+          </button>
+          <h1>Layer num: {layerInfo.layer_num}</h1>
+          <h2>layer channel: {layerInfo.channel}</h2>
+          <h2>layer width: {layerInfo.width}</h2>
+          <h2>layer height: {layerInfo.height}</h2>
+        </SideComponent>
+      </SidePane>
+      <MenuController>
+        <Joystick
+          size={100}
+          baseColor="red"
+          stickColor="blue"
+          move={(mv) => {
+            const x = mv.x;
+            const y = mv.y;
+            dispatch(camera_vec(x, y, 0));
+          }}
+          stop={() => {
+            dispatch(camera_vec(0, 0, 0));
+          }}
+        ></Joystick>
+       <ZoomBar/> 
+      </MenuController>
+    </MainaContainer>
+  </>
+);
 }
 export default MainPage;
