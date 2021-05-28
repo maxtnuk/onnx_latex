@@ -59,14 +59,14 @@ const mock_groups =[
                 height: 120
             },
             {
-                op_type: "pool",
+                op_type: "max_pool",
                 layer_num: 1,
                 channel: 25,
                 width: 30,
                 height: 30
             },
             {
-                op_type: "pool",
+                op_type: "max_pool",
                 layer_num: 2,
                 channel: 10,
                 width: 25,
@@ -92,7 +92,7 @@ const mock_groups =[
         group: 3,
         layers: [
             {
-                op_type: "cnn",
+                op_type: "sum_pool",
                 layer_num: 0,
                 channel: 100,
                 width: 100,
@@ -120,7 +120,7 @@ const mock_groups =[
                 height: 16
             },
             {
-                op_type: "cnn",
+                op_type: "max_pool",
                 layer_num: 4,
                 channel: 1,
                 width: 25,
@@ -140,7 +140,7 @@ const mock_groups =[
                 height: 10
             },
             {
-                op_type: "cnn",
+                op_type: "sum_pool",
                 layer_num: 1,
                 channel: 12,
                 width: 12,

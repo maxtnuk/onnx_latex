@@ -82,21 +82,22 @@ function MainPage() {
     }
   }, [layer]);
 
-  let group_datas = []
+  let group_layers = []
   let before_content=0;
   const ratio=10;
-  const term = 5;
+  const term = 3;
   for (const g of group_data){
     let group_width=get_group_width(g.layers,ratio);
-    group_datas.push(<>
+    console.log(g);
+    group_layers.push(
       <GroupLayer
         items={g.layers}
         ratio={ratio}
         group_idx={g.group}
-        base_position={before_content}
-      >
-      </GroupLayer>
-    </>)
+        base={before_content}
+      />
+    )
+    console.log(before_content)
     before_content+=(group_width+term)
   }
 
@@ -109,11 +110,21 @@ return (
             <Controls />
             <ambientLight />
             <pointLight position={[10, 10, 10]} />
-            <GroupLayer
+            {/* <GroupLayer
               items={group_data[0].layers}
               ratio={ratio}
               group_idx={0}
               base={0}/>
+            <GroupLayer
+              items={group_data[1].layers}
+              ratio={ratio}
+              group_idx={1}
+              base={20}/> */}
+              <>
+              {
+                group_layers
+              }
+              </>
           </ReduxBridge>
         </Canvas>
       </VisContainer>

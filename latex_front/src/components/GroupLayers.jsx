@@ -71,8 +71,6 @@ function GroupLayer(props) {
             />
         </>
         layerItems.push(inner);
-        console.log(layer_conf)
-        console.log(pos_sum)
         pos_sum+=(layer_width/ratio);
     }
     return (
