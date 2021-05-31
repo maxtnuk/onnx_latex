@@ -5,29 +5,38 @@ import { useFrame } from '@react-three/fiber'
 import { useDispatch, useSelector } from 'react-redux';
 import { choose_layer } from "api/layer";
 import { Box } from "@react-three/drei";
+import { Html } from "@react-three/drei"
+import { useThree } from "@react-three/fiber";
 
+// draw 3d layer 
 function D3Layer(props) {
+  // get group idx, layer idx
   const l_idx = props.l_idx
   const g_idx = props.g_idx
+  const name_padding= props.name_padding;
   // This reference will give us direct access to the THREE.Mesh object
   const mesh = useRef()
   // Set up state for the hovered and active state
   const [hovered, setHover] = useState(false)
   const [active, setActive] = useState(false)
+  
+  // unit for name padding
+  const unit_padding= 5;
+
+  // mesh scale factor 
   const ratio=props.ratio;
   const bs=props.size.map(x => x /ratio)
 
   const color=props.color
 
   const geometry = new THREE.BoxGeometry(bs[0], bs[1], bs[2]);
-
+  // get cube edge 
   const edges = new THREE.EdgesGeometry(geometry);
 
   const dispatch = useDispatch()
-  //  get value
+  //  redux layer selection
   const layer = useSelector(state => state.layer)
-
-
+// if layer selection is changed, set active value based on selection value
   useEffect(() => {
     if (layer.layer_idx == -1) {
       setActive(false)
@@ -37,6 +46,8 @@ function D3Layer(props) {
 
   }, [layer])
   // setActive(false)
+
+  const html_object=useRef();
 
   // Return the view, these are regular Threejs elements expressed in JSX
   return (
@@ -53,21 +64,38 @@ function D3Layer(props) {
         setHover(false)
       }}
       onClick={(event) => {
-        dispatch(choose_layer(g_idx, l_idx))
+        if (!layer.is_dragging){
+          dispatch(choose_layer(g_idx, l_idx))
+        }
       }}
     >
+      {/* line edge mesh */}
       <lineSegments
         ref={mesh}
         geometry={edges}
         // scale={active ? 1.2 : 1}
       >
+        {/* line edge color */}
         <lineBasicMaterial attach="material" color={hovered ? "blue" : "black"} />
       </lineSegments>
+      {/* box mesh  */}
       <Box
         // scale={active ? 1.2 : 1}
         args={bs}>
         <meshPhongMaterial color={color} opacity={0.5} transparent={true}/>
       </Box>
+      <Html distanceFactor={50}
+        ref={html_object}
+        style={{
+          position: 'absolute',
+          top: -(bs[1]*ratio+25+name_padding*unit_padding),
+          left: -bs[0]*ratio+5,
+        }}
+      >
+        <h1 style={{fontSize: '10px'}}>
+          {props.layer.op_type}
+        </h1>
+      </Html>
     </mesh>
   )
 }

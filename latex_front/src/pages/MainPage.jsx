@@ -10,7 +10,7 @@ import { useContextBridge } from "@react-three/drei";
 import { ReactReduxContext } from "react-redux";
 import { SidePane } from "react-side-pane";
 import { useSelector } from "react-redux";
-import { useEffect, useState } from "react";
+import { useEffect, useState,useMemo } from "react";
 import { useDispatch } from "react-redux";
 import mock_groups from "mock/GroupLayerMock";
 import { choose_layer } from "api/layer";
@@ -22,6 +22,9 @@ import { style } from "@material-ui/system";
 import { reset_camera } from "api/camera";
 import GroupLayer from "components/GroupLayers";
 import { get_group_width } from "components/GroupLayers";
+import { ArrowHelper } from "three";
+
+
 const MainaContainer = styled.div`
   overflow: hidden;
   position: fixed;
@@ -52,7 +55,12 @@ const MenuController = styled.div`
   pointer-events: null;
 `;
 
+export const DragType={
+  MainPage: "main_page"
+}
+
 function MainPage() {
+  // give mock data for test
   let group_data = mock_groups;
 
   const [layerInfo, setlayerInfo] = useState({
@@ -67,7 +75,9 @@ function MainPage() {
   const layer = useSelector((state) => state.layer);
   const dispatch = useDispatch();
 
+  // state side menu open 
   const [open, setopen] = useState(false);
+  // if layer seleted, open side menu and print layer information 
   useEffect(() => {
     const l_num = layer.layer_idx;
     const g_num =layer.group_idx;
@@ -82,52 +92,58 @@ function MainPage() {
     }
   }, [layer]);
 
-  let group_layers = []
   let before_content=0;
   const ratio=10;
   const term = 3;
-  for (const g of group_data){
-    let group_width=get_group_width(g.layers,ratio);
-    console.log(g);
-    group_layers.push(
-      <GroupLayer
-        items={g.layers}
-        ratio={ratio}
-        group_idx={g.group}
-        base={before_content}
-      />
-    )
-    console.log(before_content)
-    before_content+=(group_width+term)
-  }
+  // generate groups base on gorup_data 
+  const groups=useMemo(() => {
+    let group_layers = []
+    for (const [i,g] of group_data.entries()){
+      let group_width=get_group_width(g.layers,ratio);
+      group_layers.push(
+        <GroupLayer
+          items={g.layers}
+          ratio={ratio}
+          group_idx={g.group}
+          base={before_content}
+        />
+      )
+      if (i!==group_data.length-1){
+        const from=before_content+group_width;
+        const dir = new THREE.Vector3(1,0,0);
+        const origin=new THREE.Vector3(from,0,0);
+        const color=0x000000;
+        
+        group_layers.push(<arrowHelper 
+          args={[dir, origin, term, color]}>
+           
+          </arrowHelper>)
+      }
+      before_content+=(group_width+term)
+    }
+    return group_layers
+  }, [group_data])
+ 
 
 return (
   <>
     <MainaContainer>
+      {/* layer graphic part */}
       <VisContainer>
         <Canvas camera={{ position: [0, 0, 20] }}>
           <ReduxBridge>
             <Controls />
             <ambientLight />
             <pointLight position={[10, 10, 10]} />
-            {/* <GroupLayer
-              items={group_data[0].layers}
-              ratio={ratio}
-              group_idx={0}
-              base={0}/>
-            <GroupLayer
-              items={group_data[1].layers}
-              ratio={ratio}
-              group_idx={1}
-              base={20}/> */}
               <>
               {
-                group_layers
+                groups
               }
               </>
           </ReduxBridge>
         </Canvas>
       </VisContainer>
+      {/* side menu part  */}
       <SidePane
         open={open}
         width={30}
@@ -151,6 +167,7 @@ return (
           <h2>layer height: {layerInfo.height}</h2>
         </SideComponent>
       </SidePane>
+      {/* controller part */}
       <MenuController>
         <Joystick
           size={100}

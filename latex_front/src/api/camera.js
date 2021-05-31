@@ -1,4 +1,4 @@
-import { CHANGE_CAMERA } from "state/camera/action";
+import { CHANGE_CAMERA, DRAGGING_CAMERA } from "state/camera/action";
 import { ZOOM_CAMERA } from "state/camera/action";
 import {RESET_CAMERA} from "state/camera/action";
 
@@ -21,5 +21,12 @@ export function reset_camera(reset){
     return {
         type: RESET_CAMERA,
         r: reset
+    }
+}
+
+export function is_dragging(dragging){
+    return {
+        type: DRAGGING_CAMERA,
+        is_dragging: dragging
     }
 }

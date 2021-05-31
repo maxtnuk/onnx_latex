@@ -3,9 +3,8 @@ import { extend, useThree, useFrame } from '@react-three/fiber';
 import { TrackballControls } from 'three/examples/jsm/controls/TrackballControls';
 import * as THREE from 'three';
 import { useSelector, useDispatch } from 'react-redux'
-import { useEffect, useState } from 'react';
-import { MapControls } from '@react-three/drei'
-import { zoom_camera } from 'api/camera';
+import { useEffect, useState,useRef } from 'react';
+import { is_dragging, zoom_camera } from 'api/camera';
 import { BASE } from './ZoomBar';
 import {reset_camera } from 'api/camera'
 
@@ -43,27 +42,21 @@ function resetcamera(self_scope){
 }
 
 const Controls = ({ }) => {
-  const controls = React.useRef();
+  const controls = useRef();
   const { camera, gl } = useThree();
+
+  const drag_ref = useRef();
  
   const camera_vec = useSelector(state => state.camera)
   const dispatch = useDispatch();
 
   useFrame(() => {
-    // update the view as the vis is interacted with
-    // camera.x+=camera_vec.x/10
-    // camera.y+=camera_vec.y/10
-    // camera.z+=camera_vec.z/10
     if (camera_vec.x != 0 && camera_vec.y != 0) {
       pancamera(controls.current,camera_vec.x,camera_vec.y);
     }
-    // if (camera_vec.zoom!=BASE){
-    //   selfzoomcamera(controls.current,2);
-    // }else{
-      
-    // }
     controls.current.update();
   });
+  
   // const origin_zoom=controls.current.zoom;
   // const max_zoom=origin_zoom*();
   // const min_zoom=origin_zoom/BASE;
@@ -74,7 +67,20 @@ const Controls = ({ }) => {
     }
   }, [camera_vec.r])
 
-  return (
+  useEffect(() => {
+    if (controls.current){
+      controls.current.addEventListener("start", (event)=>{
+        dispatch(is_dragging(true))
+      })
+      controls.current.addEventListener("end",(event) => {
+        setTimeout(()=> {
+          dispatch(is_dragging(false))
+        },10000,"end drag")
+      })
+    }
+  })
+
+  return (<>
     <trackballControls
       ref={controls}
       args={[camera, gl.domElement]}
@@ -90,6 +96,7 @@ const Controls = ({ }) => {
         RIGHT: THREE.MOUSE.ROTATE,
       }}
     />
+    </>
   );
 };
 

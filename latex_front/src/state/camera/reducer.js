@@ -2,6 +2,7 @@ import { stat } from "@nodelib/fs.stat"
 import {INIT_CAMERA_VEC,CHANGE_CAMERA} from "./action"
 import { ZOOM_CAMERA } from "./action"
 import {RESET_CAMERA} from "./action"
+import { DRAGGING_CAMERA } from "./action"
 
 export default function camera_reducer(state = INIT_CAMERA_VEC, action) {
     // The reducer normally looks at the action type field to decide what happens
@@ -21,6 +22,11 @@ export default function camera_reducer(state = INIT_CAMERA_VEC, action) {
             return {
                 ...state,
                 r: action.r
+            }
+        case DRAGGING_CAMERA: 
+            return {
+                ...state,
+                is_dragging: action.is_dragging
             }
         default:
             return state
