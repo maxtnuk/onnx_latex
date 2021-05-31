@@ -7,6 +7,7 @@ import { choose_layer } from "api/layer";
 import { Box } from "@react-three/drei";
 import { Html } from "@react-three/drei"
 import { useThree } from "@react-three/fiber";
+import LayerName from "./LayerName";
 
 // draw 3d layer 
 function D3Layer(props) {
@@ -21,7 +22,7 @@ function D3Layer(props) {
   const [active, setActive] = useState(false)
   
   // unit for name padding
-  const unit_padding= 5;
+  const unit_padding=5;
 
   // mesh scale factor 
   const ratio=props.ratio;
@@ -86,15 +87,16 @@ function D3Layer(props) {
       </Box>
       <Html distanceFactor={50}
         ref={html_object}
+        center={true}
         style={{
           position: 'absolute',
           top: -(bs[1]*ratio+25+name_padding*unit_padding),
-          left: -bs[0]*ratio+5,
         }}
       >
-        <h1 style={{fontSize: '10px'}}>
-          {props.layer.op_type}
-        </h1>
+        <LayerName
+          name={props.layer.op_type}
+          color={color}
+        />
       </Html>
     </mesh>
   )

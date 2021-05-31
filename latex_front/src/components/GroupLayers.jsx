@@ -52,7 +52,7 @@ export function get_group_width(layers,ratio){
 
 function compare_name_width(width,word){
     // each char size
-    const each_char_size=2;
+    const each_char_size=3;
     // console.log(`word: ${word},width: ${each_char_size*word.length}, word lenght ${width}`)
     if (each_char_size*word.length>width){
         // name overflow

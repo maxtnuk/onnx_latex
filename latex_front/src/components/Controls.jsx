@@ -7,14 +7,7 @@ import { useEffect, useState,useRef } from 'react';
 import { is_dragging, zoom_camera } from 'api/camera';
 import { BASE } from './ZoomBar';
 import {reset_camera } from 'api/camera'
-
-// extend THREE to include TrackballControls
-extend({ TrackballControls });
-
-// key code constants
-const ALT_KEY = 18;
-const CTRL_KEY = 17;
-const CMD_KEY = 91;
+import { OrbitControls } from '@react-three/drei';
 
 function pancamera(self_scope,x,y) {
   const eye = new THREE.Vector3();
@@ -40,12 +33,14 @@ function resetcamera(self_scope){
   self_scope.reset();
   self_scope.update();
 }
+function flat_horizon(self_scope){
+  
+  self_scope.update();
+}
 
 const Controls = ({ }) => {
   const controls = useRef();
   const { camera, gl } = useThree();
-
-  const drag_ref = useRef();
  
   const camera_vec = useSelector(state => state.camera)
   const dispatch = useDispatch();
@@ -68,33 +63,23 @@ const Controls = ({ }) => {
   }, [camera_vec.r])
 
   useEffect(() => {
-    if (controls.current){
-      controls.current.addEventListener("start", (event)=>{
-        dispatch(is_dragging(true))
-      })
-      controls.current.addEventListener("end",(event) => {
-        setTimeout(()=> {
-          dispatch(is_dragging(false))
-        },10000,"end drag")
-      })
-    }
+    // if (controls.current){
+    //   controls.current.addEventListener("start", (event)=>{
+    //     dispatch(is_dragging(true))
+    //   })
+    //   controls.current.addEventListener("end",(event) => {
+    //     setTimeout(()=> {
+    //       dispatch(is_dragging(false))
+    //     },10000,"end drag")
+    //   })
+    // }
   })
 
   return (<>
-    <trackballControls
+    <OrbitControls
       ref={controls}
-      args={[camera, gl.domElement]}
-      dynamicDampingFactor={0.1}
-      keys={[
-        ALT_KEY, // orbit
-        CTRL_KEY, // zoom
-        CMD_KEY, // pan
-      ]}
-      mouseButtons={{
-        LEFT: THREE.MOUSE.PAN, // make pan the default instead of rotate
-        MIDDLE: THREE.MOUSE.ZOOM,
-        RIGHT: THREE.MOUSE.ROTATE,
-      }}
+      camera={camera}
+      dampingFactor={0.05}
     />
     </>
   );
