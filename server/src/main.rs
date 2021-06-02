@@ -1,10 +1,5 @@
 use actix_multipart::Multipart;
-use actix_web::{
-    dev::HttpResponseBuilder,
-    error, get,
-    http::{header, StatusCode},
-    post, web, App, Error, HttpResponse, HttpServer, Responder,
-};
+use actix_web::{App, Error, HttpResponse, HttpServer, Responder, dev::HttpResponseBuilder, error, get, http::{header, StatusCode}, post, web::{self, Buf}};
 
 use derive_more::{Display, Error};
 use latex_gen::{Indexes, LatexEngine, LatexResult};
@@ -19,7 +14,9 @@ use std::time::{Duration, Instant};
 use serde::Deserialize;
 use serde::Serialize;
 
-use futures::{future::ok, stream::once, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt, future::{self, ok}, stream::once};
+
+use par_stream::ParStreamExt;
 
 #[derive(Debug, Display, Error)]
 enum MyError {
@@ -59,20 +56,26 @@ type OnFile = Cursor<Vec<u8>>;
 
 async fn mutlipart_filelist(payload: &mut Multipart) -> Result<HashMap<String, OnFile>, Error> {
     let mut file_list = HashMap::new();
+    // let start=Instant::now();
 
-    while let Ok(Some(mut field)) = payload.try_next().await {
+    while let Ok(Some(field)) = payload.try_next().await {
         let content_type = field.content_disposition().unwrap();
         let filename = content_type.get_name().unwrap();
 
         // File::create is blocking operation, use threadpool
-        let mut f = Cursor::new(Vec::new());
 
         // Field in turn is stream of *Bytes* object
-        while let Some(chunk) = field.next().await {
-            let data = chunk.unwrap();
-            // filesystem operations are blocking, we have to use threadpool
-            f = web::block(move || f.write_all(&data).map(|_| f)).await?;
-        }
+        let data:Vec<u8> =field.into_stream().filter_map(move |chunk|{
+            async {chunk.ok()}
+        }).fold(Vec::new(),|mut acc ,x|{
+            acc.extend_from_slice(x.bytes());
+            async {
+                acc
+            }
+        }).await;
+
+        let mut f = Cursor::new(data);
+        
         f.seek(SeekFrom::Start(0)).unwrap();
         file_list.insert(filename.to_string(), f);
     }
@@ -91,11 +94,9 @@ async fn parse_file(
 ) -> Result<HttpResponse, Error> {
     // iterate over multipart stream
     //  only one file
-    let start=Instant::now();
+    
     let mut file_list = mutlipart_filelist(&mut payload).await?;
 
-    let end = start.elapsed();
-    println!("file :{:?}",end);
     let mut engine = LatexEngine::new();
 
     // println!("{:?}",file_list.keys().map(|s| s.to_string()).collect::<Vec<String>>());
@@ -107,9 +108,6 @@ async fn parse_file(
     let result = engine
         .parse_from_file(model, info.depth)
         .map_err(|_e| MyError::ParseError)?;
-    
-    let end = start.elapsed();
-    println!("parse :{:?}",end);
 
     model.seek(SeekFrom::Start(0)).unwrap();
 
@@ -120,9 +118,6 @@ async fn parse_file(
     let body = once(ok::<_, Error>(web::Bytes::copy_from_slice(
         result.gen_json().as_bytes(),
     )));
-
-    let end = start.elapsed();
-    println!("json :{:?}",end);
 
     Ok(HttpResponse::Ok().streaming(body))
 }

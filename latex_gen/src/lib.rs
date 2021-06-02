@@ -428,7 +428,7 @@ impl LatexEngine {
                 inner
             };
             let node_kind = self.configure_node(node, *n);
-            print_time(&start,"configure_node");
+            // print_time(&start,"configure_node");
             let mut candidate: Option<usize> = None;
             // input part
             let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
@@ -454,7 +454,7 @@ impl LatexEngine {
             for i in input_ids.iter() {
                 let undefined_node = inf_model.node(*i);
                 let _inner = self.configure_node(undefined_node, *i);
-                print_time(&start,"input configure");
+                // print_time(&start,"input configure");
             }
             let mut input_shape_option: Option<Vec<usize>> = None;
             for i in &node.inputs {
@@ -538,7 +538,7 @@ impl LatexEngine {
         latex_result.symbol_map = self.symbol_map.clone();
 
         latex_result.senario = senario;
-        print_time(&start,"end");
+        // print_time(&start,"end");
         self.flush();
         latex_result
     }
@@ -700,7 +700,7 @@ impl LatexEngine {
                     let i_node = model.node(out.node);
                     self.rec_node(i_node, model, next_many,timer)
                 }).collect();
-                print_time(&timer,"input");
+                // print_time(&timer,"input");
                 let n = node.id;
                 let _n_name = node.op().name();
 
@@ -709,7 +709,7 @@ impl LatexEngine {
                 let output_shape = sym_node.output_shape.clone();
                 let input_shape = sym_node.input_shape_ref.clone();
                 let result=node_op.gen_forward_value(ins, input_shape, Some(output_shape));
-                print_time(&timer,"forward");
+                // print_time(&timer,"forward");
                 result
             }
         }
