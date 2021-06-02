@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"name": "onnx_parser",
+			"path": "../../.."
+		}
+	],
+	"settings": {
+		"python.pythonPath": "/opt/homebrew/Caskroom/miniforge/base/envs/py39/bin/python"
+	}
+}

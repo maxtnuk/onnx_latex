@@ -14,6 +14,7 @@ use std::{
     io::{Cursor, Seek, SeekFrom, Write},
     usize,
 };
+use std::time::{Duration, Instant};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -90,8 +91,11 @@ async fn parse_file(
 ) -> Result<HttpResponse, Error> {
     // iterate over multipart stream
     //  only one file
+    let start=Instant::now();
     let mut file_list = mutlipart_filelist(&mut payload).await?;
 
+    let end = start.elapsed();
+    println!("file :{:?}",end);
     let mut engine = LatexEngine::new();
 
     // println!("{:?}",file_list.keys().map(|s| s.to_string()).collect::<Vec<String>>());
@@ -103,6 +107,9 @@ async fn parse_file(
     let result = engine
         .parse_from_file(model, info.depth)
         .map_err(|_e| MyError::ParseError)?;
+    
+    let end = start.elapsed();
+    println!("parse :{:?}",end);
 
     model.seek(SeekFrom::Start(0)).unwrap();
 
@@ -113,6 +120,9 @@ async fn parse_file(
     let body = once(ok::<_, Error>(web::Bytes::copy_from_slice(
         result.gen_json().as_bytes(),
     )));
+
+    let end = start.elapsed();
+    println!("json :{:?}",end);
 
     Ok(HttpResponse::Ok().streaming(body))
 }

@@ -1,23 +1,14 @@
-use tract_onnx::{
-    pb::ModelProto,
-    tract_core::ops::nn::Sigmoid,
-    tract_hir::{
-        internal::{Expansion, OpState, SessionState},
-        ops::{
+use tract_onnx::{Onnx, pb::ModelProto, tract_core::ops::nn::Sigmoid, tract_hir::{infer::GenericFactoid, internal::{Expansion, OpState, SessionState}, ops::{
             array::Pad,
             cnn::{MaxPool, SumPool},
             dummy::Dummy,
             element_wise::ElementWiseOp,
             konst::Const,
             source::Source,
-        },
-        utils::{is_weightable, mathgen_ele_op, FormulKind, MathGen},
-    },
-    Onnx,
-};
+        }, utils::{is_weightable, mathgen_ele_op, FormulKind, MathGen}}};
 
 use rand::prelude::*;
-use std::hash::Hash;
+use std::{hash::Hash, time::Instant};
 use std::{fmt::Debug, io::ErrorKind};
 use std::{fmt::Display, io::Read, path::Path};
 use tract_onnx::tract_hir::utils::mathgen_op;
@@ -290,8 +281,11 @@ pub fn model_info<P: AsRef<Path>>(path: P) -> TractResult<()> {
         .into_runnable()?;
     // let mm = model.model();
     // println!("input shape{}",mm.node(0).)
+    let mut inf_model=model.model.clone();
+    // inf_model.analyse(false)?;
+    // let inf_model=inf_model.clone().incorporate()?;
 
-    for n in model.model().nodes() {
+    for n in inf_model.nodes() {
         let op_name = n.op().name();
         let node_name = n.name.clone();
         println!("id: {}", n.id);
@@ -301,7 +295,7 @@ pub fn model_info<P: AsRef<Path>>(path: P) -> TractResult<()> {
             print!(" {:?}", i);
             let fact = model.model().outlet_fact(*i).unwrap();
             println!("shape: {:?}", fact.shape.clone());
-            println!("value: {:?}", fact.value.clone());
+            // println!("value: {:?}", fact.value.clone());
         }
         for i in n.outputs.iter() {
             println!("out test:{:?}", i.fact.shape);
@@ -387,13 +381,13 @@ impl LatexEngine {
             .collect();
         let total_elements: usize = input_shape.iter().product();
 
-        let mut rng = thread_rng();
-        let vals: Vec<_> = (0..total_elements).map(|_| rng.gen::<f32>()).collect();
-        let input = tract_ndarray::arr1(&vals)
-            .into_shape(input_shape.as_slice())
-            .unwrap();
+        // let mut rng = thread_rng();
+        // let vals: Vec<_> = (0..total_elements).map(|_| rng.gen::<f32>()).collect();
+        // let input = tract_ndarray::arr1(&vals)
+        //     .into_shape(input_shape.as_slice())
+        //     .unwrap();
 
-        let result = self.parse_plan(&plan, tvec![input.into()], ParseMode::Full(many));
+        let result = self.parse_plan(&plan, ParseMode::Full(many));
 
         Ok(result)
     }
@@ -401,45 +395,43 @@ impl LatexEngine {
     pub fn parse_plan(
         &mut self,
         original: &InferencePlan,
-        inputs: TVec<Tensor>,
         mode: ParseMode,
     ) -> LatexResult {
-        let mut state = SimpleState::new(original).unwrap();
-        state.set_inputs(inputs).expect("input fail");
-
-        let &mut SimpleState {
-            ref mut session_state,
-            ref mut states,
-            ref mut values,
-            ..
-        } = &mut state;
+        
         let plan = original;
-        let model = original.model();
+        let mut inf_model=plan.model().clone();
+        // analyze input and fix order with obstinate 
+        inf_model.analyse(true).unwrap();
 
         let mut senario = Vec::new();
-        self.symbol_map.resize(model.nodes.len(), None);
-        self.math_op_vec.resize(model.nodes.len(), None);
+        self.symbol_map.resize(inf_model.nodes.len(), None);
+        self.math_op_vec.resize(inf_model.nodes.len(), None);
+        
+        let start = Instant::now();
+        let print_time =|s: &Instant,m:&str|{
+            let end = s.elapsed();
+        };
 
+        
         for (_step, n) in plan.order.iter().enumerate() {
-            let node = model.node(*n);
+            let node = inf_model.node(*n);
             println!("node {}", *n);
-
             // println!("node_kind {:?}",node_kind);
             let mt = self.math_op_vec.get_mut(*n).unwrap();
-
+            // print_time(&start,"mathgen");
             let node_op = if let Some(a) = mt {
                 a.clone()
             } else {
                 let inner = Self::boxed_mathgen(node);
+                // print_time(&start,"gen mathgen");
                 *mt = Some(inner.clone());
                 inner
             };
             let node_kind = self.configure_node(node, *n);
+            print_time(&start,"configure_node");
             let mut candidate: Option<usize> = None;
             // input part
-            let mut inputs: TVec<Arc<Tensor>> = tvec![];
             let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
-
             if let Some(fk) = node_kind {
                 match fk {
                     FormulKind::Activation | FormulKind::Function | FormulKind::Cnn => {
@@ -458,20 +450,27 @@ impl LatexEngine {
 
             // let op_name = node.op().name();
 
+            // configure input nodes 
             for i in input_ids.iter() {
-                let undefined_node = model.node(*i);
+                let undefined_node = inf_model.node(*i);
                 let _inner = self.configure_node(undefined_node, *i);
+                print_time(&start,"input configure");
             }
             let mut input_shape_option: Option<Vec<usize>> = None;
             for i in &node.inputs {
-                let _prec_node = model.node(i.node);
-                let prec = values[i.node].as_ref().ok_or_else(|| "error").unwrap();
-                let fact = model.outlet_fact(*i).unwrap();
+                let fact = inf_model.outlet_fact(*i).unwrap();
 
                 let input_shape: Vec<usize> = fact
                     .shape
                     .dims()
-                    .map(|s| format!("{}", s).as_str().parse().unwrap())
+                    .map(|s| 
+                    match s{
+                        GenericFactoid::Only(x) => {
+                        x.to_i64().unwrap() as usize
+                    },
+                    GenericFactoid::Any => {
+                        unreachable!()
+                    }})
                     .collect();
 
                 if let Some(l) = self.symbol_map[i.node].as_mut() {
@@ -488,18 +487,20 @@ impl LatexEngine {
                         l.output_shape = input_shape;
                     }
                 }
-                inputs.push(prec[i.slot].clone().into())
             }
-            let vs = eval(
-                session_state,
-                states[node.id].as_mut().map(|s| &mut **s),
-                node,
-                inputs,
-            )
-            .unwrap();
-            values[node.id] = Some(vs.clone());
             let output_shape: Vec<usize> =
-                vs.iter().flat_map(|x| x.shape().iter()).cloned().collect();
+                node.outputs.iter().flat_map(|x| {
+                    x.fact.shape.dims()
+                }).map(|x| {
+                    match x{
+                        GenericFactoid::Only(x) => {
+                            x.to_i64().unwrap() as usize
+                        },
+                        GenericFactoid::Any => {
+                            unreachable!()
+                        },
+                    }
+                }).collect();
             if let Some(form) = self.symbol_map[*n].as_mut() {
                 form.output_shape = output_shape.clone();
                 form.input_shape_ref = input_shape_option.clone();
@@ -518,8 +519,11 @@ impl LatexEngine {
                         Some(output_shape.clone()),
                     )
                 }
-                ParseMode::Full(many) => self.rec_node(node, model, many),
+                ParseMode::Full(many) => {
+                    self.rec_node(node, &inf_model, many,&start)
+                },
             };
+            // print_time(&start,"forward parsing");
             // node formul
 
             if let Some(form) = self.symbol_map[*n].as_mut() {
@@ -530,10 +534,11 @@ impl LatexEngine {
 
         // backward
         // self.gen_back_total(model, latex_result.senario.clone());
-        let mut latex_result = LatexResult::new(model.nodes.len());
+        let mut latex_result = LatexResult::new(inf_model.nodes.len());
         latex_result.symbol_map = self.symbol_map.clone();
 
         latex_result.senario = senario;
+        print_time(&start,"end");
         self.flush();
         latex_result
     }
@@ -577,7 +582,6 @@ impl LatexEngine {
             let sym_node = symbol_result.symbol_map[*i].as_ref().unwrap();
 
             let kind = math_op.get_symbol_type(sym_node.extra_symbol.clone());
-            println!("{:?}", kind);
             if is_weightable(kind).is_none() {
                 println!("skip {}", *i);
                 continue;
@@ -678,34 +682,38 @@ impl LatexEngine {
         node: &InferenceNode,
         model: &InferenceModel,
         many: Option<usize>,
+        timer: &Instant
     ) -> String {
-        let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
+        let print_time =|s: &Instant,m:&str|{
+            let end = s.elapsed();
+            println!("{}: {:?}",m,end);
+        };
         let sym_node = self.symbol_map[node.id].as_ref().unwrap();
-        if input_ids.len() == 0 {
+        if node.inputs.len()==0 {
             return sym_node.symbol.clone();
         }
         match many {
             Some(x) if x == 0 => sym_node.symbol.clone(),
             _ => {
-                let ins = input_ids.iter().fold(Vec::new(), |mut acc, x| {
-                    let i_node = model.node(*x);
-                    if let Some(x) = many {
-                        acc.push(self.rec_node(i_node, model, Some(x - 1)));
-                    } else {
-                        acc.push(self.rec_node(i_node, model, None));
-                    }
-
-                    acc
-                });
+                let next_many=many.clone().map(|x| x-1);
+                let ins = node.inputs.iter().map(|out| {
+                    let i_node = model.node(out.node);
+                    self.rec_node(i_node, model, next_many,timer)
+                }).collect();
+                print_time(&timer,"input");
                 let n = node.id;
                 let _n_name = node.op().name();
 
+                // generate forward string with op 
                 let node_op = self.math_op_vec[n].as_ref().unwrap();
                 let output_shape = sym_node.output_shape.clone();
                 let input_shape = sym_node.input_shape_ref.clone();
-                node_op.gen_forward_value(ins, input_shape, Some(output_shape))
+                let result=node_op.gen_forward_value(ins, input_shape, Some(output_shape));
+                print_time(&timer,"forward");
+                result
             }
         }
+
     }
     fn countup(&mut self, kind: &FormulKind) -> Option<usize> {
         match kind {

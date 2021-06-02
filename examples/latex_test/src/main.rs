@@ -14,18 +14,18 @@ fn test_part<F: AsRef<Path>>(path: F) -> TractResult<()> {
     let proto = latex_gen::parse_proto(path)?;
     //  println!("{:?}", result.senario);
     let indexes = Indexes::new(vec![10, 20, 30], vec![3, 4, 5]);
-    let parse_result = engine.gen_back_total(&mut result, &proto, indexes, Some(3));
-    if parse_result.is_ok() {
-        for i in 0..result.symbol_map.len() {
-            println!(
-                "{}: {}",
-                result.symbol_map[i].as_ref().unwrap().symbol.clone(),
-                result.get_node_backward(i)
-            );
-        }
-    } else {
-        println!("message: {:?}", parse_result.err());
-    }
+    // let parse_result = engine.gen_back_total(&mut result, &proto, indexes, Some(3));
+    // if parse_result.is_ok() {
+    //     for i in 0..result.symbol_map.len() {
+    //         println!(
+    //             "{}: {}",
+    //             result.symbol_map[i].as_ref().unwrap().symbol.clone(),
+    //             result.get_node_backward(i)
+    //         );
+    //     }
+    // } else {
+    //     println!("message: {:?}", parse_result.err());
+    // }
     // for n in result.symbol_map.iter() {
     //     println!("forward: {}", n.clone().unwrap().forward_value);
     // }
