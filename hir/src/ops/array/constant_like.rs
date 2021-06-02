@@ -27,9 +27,7 @@ impl EvalOp for ConstantLike {
 
     fn eval(&self, mut inputs: TVec<Arc<Tensor>>) -> TractResult<TVec<Arc<Tensor>>> {
         let input = args_1!(inputs);
-        Ok(tvec!(tensor0(self.value)
-            .broadcast_scalar_to_shape(input.shape())?
-            .into_arc_tensor()))
+        Ok(tvec!(tensor0(self.value).broadcast_scalar_to_shape(input.shape())?.into_arc_tensor()))
     }
 }
 
@@ -45,21 +43,17 @@ impl InferenceRulesOp for ConstantLike {
         s.equals(&inputs[0].datum_type, &outputs[0].datum_type)?;
         s.equals(&inputs[0].rank, &outputs[0].rank)?;
         s.equals(&inputs[0].shape, &outputs[0].shape)?;
-        s.given_2(
-            &inputs[0].shape,
-            &inputs[0].datum_type,
-            move |s, shape, dt| {
-                if shape.iter().all(|d| d.to_usize().is_ok()) {
-                    let shape: Vec<usize> = shape.iter().map(|d| d.to_usize().unwrap()).collect();
-                    let value = tensor0(self.value)
-                        .cast_to_dt(dt)?
-                        .broadcast_scalar_to_shape(&*shape)?
-                        .into_arc_tensor();
-                    s.equals(&outputs[0].value, value)?;
-                }
-                Ok(())
-            },
-        )
+        s.given_2(&inputs[0].shape, &inputs[0].datum_type, move |s, shape, dt| {
+            if shape.iter().all(|d| d.to_usize().is_ok()) {
+                let shape: Vec<usize> = shape.iter().map(|d| d.to_usize().unwrap()).collect();
+                let value = tensor0(self.value)
+                    .cast_to_dt(dt)?
+                    .broadcast_scalar_to_shape(&*shape)?
+                    .into_arc_tensor();
+                s.equals(&outputs[0].value, value)?;
+            }
+            Ok(())
+        })
     }
 
     as_op!();
@@ -116,10 +110,7 @@ impl EvalOp for EyeLike {
     fn eval(&self, mut inputs: TVec<Arc<Tensor>>) -> TractResult<TVec<Arc<Tensor>>> {
         let input = args_1!(inputs);
         let dt = self.dt.unwrap_or(input.datum_type());
-        Ok(tvec!(dispatch_numbers!(Self::make(dt)(
-            self,
-            (input.shape()[0], input.shape()[1])
-        ))?))
+        Ok(tvec!(dispatch_numbers!(Self::make(dt)(self, (input.shape()[0], input.shape()[1])))?))
     }
 }
 

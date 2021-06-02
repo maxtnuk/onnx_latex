@@ -1,6 +1,7 @@
 use crate::model::ParsingContext;
 use crate::pb::*;
 use tract_hir::internal::*;
+use tract_hir::utils::MathGen;
 
 pub fn pow(
     _ctx: &ParsingContext,

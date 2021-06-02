@@ -1,4 +1,5 @@
 use tract_hir::internal::*;
+use tract_hir::utils::MathGen;
 
 use crate::model::ParsingContext;
 use crate::pb::NodeProto;

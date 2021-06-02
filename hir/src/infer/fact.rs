@@ -48,17 +48,11 @@ impl InferenceFact {
     }
 
     pub fn with_datum_type(self, dt: DatumType) -> InferenceFact {
-        InferenceFact {
-            datum_type: dt.into(),
-            ..self
-        }
+        InferenceFact { datum_type: dt.into(), ..self }
     }
 
     pub fn with_shape<S: Into<ShapeFactoid>>(self, shape: S) -> InferenceFact {
-        InferenceFact {
-            shape: shape.into(),
-            ..self
-        }
+        InferenceFact { shape: shape.into(), ..self }
     }
 
     pub fn format_dt_shape(&self) -> String {
@@ -87,10 +81,7 @@ impl InferenceFact {
     }
 
     pub fn without_value(self) -> InferenceFact {
-        InferenceFact {
-            value: GenericFactoid::Any,
-            ..self
-        }
+        InferenceFact { value: GenericFactoid::Any, ..self }
     }
 }
 
@@ -163,12 +154,7 @@ impl<'a> TryFrom<&'a InferenceFact> for TypedFact {
             let shape = ShapeFact::from_dims(shape);
             let konst = fact.value.concretize();
             let uniform = konst.as_ref().and_then(|k| k.as_uniform()).map(Arc::new);
-            Ok(TypedFact {
-                datum_type,
-                shape,
-                konst,
-                uniform,
-            })
+            Ok(TypedFact { datum_type, shape, konst, uniform })
         } else {
             bail!("Can not make a TypedFact out of {:?}", fact)
         }

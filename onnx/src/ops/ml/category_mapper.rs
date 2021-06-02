@@ -1,6 +1,7 @@
 use crate::model::{OnnxOpRegister, ParsingContext};
 use crate::pb::*;
 use tract_hir::internal::*;
+use tract_hir::utils::MathGen;
 use tract_onnx_opl::ml::*;
 
 pub fn register_all_ops(reg: &mut OnnxOpRegister) {

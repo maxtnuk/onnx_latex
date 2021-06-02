@@ -1,4 +1,4 @@
-use crate::internal::*;
+use crate::{internal::*, utils::MathGen};
 use tract_itertools::Itertools;
 
 #[derive(Debug, Clone, Hash)]
@@ -11,7 +11,7 @@ pub struct StridedSlice {
 }
 
 impl_dyn_hash!(StridedSlice);
-impl MathGen for StridedSlice {}
+impl MathGen for StridedSlice{}
 #[derive(Debug, Clone, PartialEq)]
 struct Dim {
     // position of the first element to return
@@ -116,21 +116,11 @@ impl StridedSlice {
             begin = None;
         }
 
-        let mut begin = begin.unwrap_or_else(|| {
-            if stride > 0 {
-                0.to_dim()
-            } else {
-                dim.clone() - 1
-            }
-        });
+        let mut begin =
+            begin.unwrap_or_else(|| if stride > 0 { 0.to_dim() } else { dim.clone() - 1 });
         if begin.to_isize().map(|b| b < 0).unwrap_or(false) {
             if stride < 0 {
-                return Ok(Dim {
-                    begin: 0.to_dim(),
-                    end: 0.to_dim(),
-                    stride,
-                    shrink: false,
-                });
+                return Ok(Dim { begin: 0.to_dim(), end: 0.to_dim(), stride, shrink: false });
             } else {
                 begin = 0.to_dim();
             }
@@ -138,33 +128,17 @@ impl StridedSlice {
         if let (Ok(b), Ok(d)) = (begin.to_isize(), dim.to_isize()) {
             if b > d - 1 {
                 if stride > 0 {
-                    return Ok(Dim {
-                        begin: 0.to_dim(),
-                        end: 0.to_dim(),
-                        stride,
-                        shrink: false,
-                    });
+                    return Ok(Dim { begin: 0.to_dim(), end: 0.to_dim(), stride, shrink: false });
                 } else {
                     begin = (d - 1).to_dim()
                 }
             }
         }
 
-        let mut end = end.unwrap_or_else(|| {
-            if stride > 0 {
-                dim.clone()
-            } else {
-                (-1).to_dim()
-            }
-        });
+        let mut end = end.unwrap_or_else(|| if stride > 0 { dim.clone() } else { (-1).to_dim() });
         if end.to_isize().map(|e| e < 0).unwrap_or(false) {
             if stride > 0 {
-                return Ok(Dim {
-                    begin: 0.to_dim(),
-                    end: 0.to_dim(),
-                    stride,
-                    shrink: false,
-                });
+                return Ok(Dim { begin: 0.to_dim(), end: 0.to_dim(), stride, shrink: false });
             } else {
                 end = -1.to_dim();
             }
@@ -174,21 +148,11 @@ impl StridedSlice {
                 if stride > 0 {
                     end = d.to_dim()
                 } else {
-                    return Ok(Dim {
-                        begin: 0.to_dim(),
-                        end: 0.to_dim(),
-                        stride,
-                        shrink: false,
-                    });
+                    return Ok(Dim { begin: 0.to_dim(), end: 0.to_dim(), stride, shrink: false });
                 }
             }
         }
-        Ok(Dim {
-            begin,
-            end,
-            stride,
-            shrink: false,
-        })
+        Ok(Dim { begin, end, stride, shrink: false })
     }
 }
 
@@ -334,10 +298,7 @@ impl Expansion for StridedSlice {
             target.rename_node(wire.node, prefix)?;
             Ok(tvec!(wire))
         } else {
-            bail!(
-                "StridedSlice in not typable when params are dynamic: got:{:?}",
-                params
-            );
+            bail!("StridedSlice in not typable when params are dynamic: got:{:?}", params);
         }
     }
 }
@@ -388,11 +349,7 @@ mod tests {
         assert_eq!(
             eval(
                 strided_slice(0, 0, 0),
-                arr3(&[
-                    [[1, 1, 1], [2, 2, 2]],
-                    [[3, 3, 3], [4, 4, 4]],
-                    [[5, 5, 5], [6, 6, 6]],
-                ]),
+                arr3(&[[[1, 1, 1], [2, 2, 2]], [[3, 3, 3], [4, 4, 4]], [[5, 5, 5], [6, 6, 6]],]),
                 tensor1(&[1, 0, 0]),
                 tensor1(&[2, 1, 3]),
                 tensor1(&[1, 1, 1])
@@ -406,11 +363,7 @@ mod tests {
         assert_eq!(
             eval(
                 strided_slice(0, 0, 0),
-                arr3(&[
-                    [[1, 1, 1], [2, 2, 2]],
-                    [[3, 3, 3], [4, 4, 4]],
-                    [[5, 5, 5], [6, 6, 6]],
-                ]),
+                arr3(&[[[1, 1, 1], [2, 2, 2]], [[3, 3, 3], [4, 4, 4]], [[5, 5, 5], [6, 6, 6]],]),
                 tensor1(&[1, 0, 0]),
                 tensor1(&[2, 2, 3]),
                 tensor1(&[1, 1, 1])
@@ -424,11 +377,7 @@ mod tests {
         assert_eq!(
             eval(
                 strided_slice(0, 0, 0),
-                arr3(&[
-                    [[1, 1, 1], [2, 2, 2]],
-                    [[3, 3, 3], [4, 4, 4]],
-                    [[5, 5, 5], [6, 6, 6]],
-                ]),
+                arr3(&[[[1, 1, 1], [2, 2, 2]], [[3, 3, 3], [4, 4, 4]], [[5, 5, 5], [6, 6, 6]],]),
                 tensor1(&[1, -1, 0]),
                 tensor1(&[2, -3, 3]),
                 tensor1(&[1, -1, 1])
@@ -456,11 +405,7 @@ mod tests {
         assert_eq!(
             eval(
                 strided_slice(0, 0, 0),
-                tensor3(&[
-                    [[1, 1, 1], [2, 2, 2]],
-                    [[3, 3, 3], [4, 4, 4]],
-                    [[5, 5, 5], [6, 6, 6]],
-                ]),
+                tensor3(&[[[1, 1, 1], [2, 2, 2]], [[3, 3, 3], [4, 4, 4]], [[5, 5, 5], [6, 6, 6]],]),
                 tensor1(&[1, 0, 0]),
                 tensor1(&[2, 2, 4]),
                 tensor1(&[1, 1, 2])
@@ -516,13 +461,7 @@ mod tests {
         let mut op = strided_slice(0, 0, 0);
         op.begin_mask = 1;
         assert_eq!(
-            eval(
-                op,
-                tensor1(&[0, 1]),
-                tensor1(&[1]),
-                tensor1(&[1]),
-                tensor1(&[1])
-            ),
+            eval(op, tensor1(&[0, 1]), tensor1(&[1]), tensor1(&[1]), tensor1(&[1])),
             Tensor::from(tensor1(&[0]))
         )
     }
@@ -532,13 +471,7 @@ mod tests {
         let mut op = strided_slice(0, 0, 0);
         op.shrink_axis_mask = 1;
         assert_eq!(
-            eval(
-                op,
-                arr2(&[[0]]),
-                tensor1(&[0, 0]),
-                tensor1(&[0, 0]),
-                tensor1(&[1, 1])
-            ),
+            eval(op, arr2(&[[0]]), tensor1(&[0, 0]), tensor1(&[0, 0]), tensor1(&[1, 1])),
             tensor1::<i32>(&[])
         )
     }
@@ -548,13 +481,7 @@ mod tests {
         let mut op = strided_slice(0, 0, 0);
         op.shrink_axis_mask = 1;
         assert_eq!(
-            eval(
-                op,
-                tensor1(&[0]),
-                tensor1(&[0]),
-                tensor1(&[0]),
-                tensor1(&[1])
-            ),
+            eval(op, tensor1(&[0]), tensor1(&[0]), tensor1(&[0]), tensor1(&[1])),
             tensor0::<i32>(0)
         )
     }
@@ -636,10 +563,7 @@ mod tests {
 
         assert_eq!(
             output_facts,
-            tvec![InferenceFact::dt_shape(
-                DatumType::F32,
-                shapefactoid!(1, (s() - 4), 16)
-            )]
+            tvec![InferenceFact::dt_shape(DatumType::F32, shapefactoid!(1, (s() - 4), 16))]
         );
     }
 
@@ -658,10 +582,7 @@ mod tests {
 
         assert_eq!(
             output_facts,
-            tvec![InferenceFact::dt_shape(
-                DatumType::F32,
-                shapefactoid!(1, (s() - 4), 16)
-            )]
+            tvec![InferenceFact::dt_shape(DatumType::F32, shapefactoid!(1, (s() - 4), 16))]
         );
     }
 
@@ -677,12 +598,7 @@ mod tests {
                 &[-1]
             )
             .unwrap(),
-            Dim {
-                begin: 3.to_dim(),
-                end: -1.to_dim(),
-                stride: -1,
-                shrink: false
-            }
+            Dim { begin: 3.to_dim(), end: -1.to_dim(), stride: -1, shrink: false }
         );
     }
 
@@ -698,12 +614,7 @@ mod tests {
                 &[-1]
             )
             .unwrap(),
-            Dim {
-                begin: 3.to_dim(),
-                end: -1.to_dim(),
-                stride: -1,
-                shrink: false
-            }
+            Dim { begin: 3.to_dim(), end: -1.to_dim(), stride: -1, shrink: false }
         );
     }
 }

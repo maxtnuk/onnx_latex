@@ -2,6 +2,7 @@ use crate::model::{OnnxOpRegister, ParsingContext};
 use crate::pb::NodeProto;
 use tract_hir::internal::*;
 use tract_hir::ops::quant::*;
+use tract_hir::utils::MathGen;
 use tract_ndarray::ArrayViewD;
 
 pub fn register_all_ops(reg: &mut OnnxOpRegister) {

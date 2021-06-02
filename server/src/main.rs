@@ -7,7 +7,8 @@ use actix_web::{
 };
 
 use derive_more::{Display, Error};
-use latex_gen::{LatexEngine, LatexResult};
+use latex_gen::{Indexes, LatexEngine, LatexResult};
+use serde_json::value::Index;
 use std::{
     collections::HashMap,
     io::{Cursor, Seek, SeekFrom, Write},
@@ -119,16 +120,16 @@ async fn parse_file(
 #[derive(Deserialize)]
 struct BackwardParam {
     layer_node: usize,
-    layer_idx: usize,
-    weight_idx: usize,
+    layer_idxs: Vec<usize>,
+    weight_idxs: Vec<usize>,
     depth: Option<usize>,
 }
 
 #[derive(Serialize, Debug)]
 struct BackwardAnswer {
     node: usize,
-    layer_idx: usize,
-    weight_idx: usize,
+    layer_idxs: Vec<usize>,
+    weight_idxs: Vec<usize>,
     symbol: String,
     value: String,
 }
@@ -138,53 +139,54 @@ async fn backward(
     web::Query(info): web::Query<BackwardParam>,
     mut payload: Multipart,
 ) -> Result<HttpResponse, Error> {
-    // let file_list = mutlipart_filelist(&mut payload).await?;
+    let file_list = mutlipart_filelist(&mut payload).await?;
 
-    // let mut model_file = file_list
-    //     .get(&"model".to_string())
-    //     .ok_or(MyError::BadClientData)?
-    //     .clone();
-    // let mut raw_symbol = file_list
-    //     .get(&"symbol".to_string())
-    //     .ok_or(MyError::BadClientData)?
-    //     .clone();
+    let mut model_file = file_list
+        .get(&"model".to_string())
+        .ok_or(MyError::BadClientData)?
+        .clone();
+    let mut raw_symbol = file_list
+        .get(&"symbol".to_string())
+        .ok_or(MyError::BadClientData)?
+        .clone();
 
-    // model_file.seek(SeekFrom::Start(0)).unwrap();
-    // raw_symbol.seek(SeekFrom::Start(0)).unwrap();
+    model_file.seek(SeekFrom::Start(0)).unwrap();
+    raw_symbol.seek(SeekFrom::Start(0)).unwrap();
 
-    // let engine = LatexEngine::new();
+    let engine = LatexEngine::new();
 
-    // let model = engine
-    //     .model_from_file(&mut model_file)
-    //     .map_err(|_e| MyError::InternalError)?;
+    let model = engine
+        .model_from_file(&mut model_file)
+        .map_err(|_e| MyError::InternalError)?;
 
-    // let symbol =
-    //     LatexResult::from_reader(raw_symbol.into_inner()).map_err(|_e| MyError::InternalError)?;
+    let symbol =
+        LatexResult::from_reader(raw_symbol.into_inner()).map_err(|_e| MyError::InternalError)?;
 
-    // let math_ops = latex_gen::LatexEngine::math_op_vecs(&model);
+    let math_ops = latex_gen::LatexEngine::math_op_vecs(&model);
 
-    // let last_point = symbol.senario.last().cloned().unwrap();
-    // let (s, v) = engine
-    //     .gen_each_back(
-    //         &math_ops,
-    //         &model,
-    //         &symbol,
-    //         (info.layer_node, last_point),
-    //         (info.layer_idx, info.weight_idx),
-    //         info.depth,
-    //     )
-    //     .map_err(|_x| MyError::ParseError)?;
-    // // let r = |s: &String| ->String{s.replace(r#"\\"#,r#"\"#)};
+    let indexs = Indexes::new(info.weight_idxs.clone(),info.layer_idxs.clone());
+    let last_point = symbol.senario.last().cloned().unwrap();
+    let (s, v) = engine
+        .gen_each_back(
+            &math_ops,
+            &model,
+            &symbol,
+            (info.layer_node, last_point),
+            &indexs,
+            info.depth,
+        )
+        .map_err(|_x| MyError::ParseError)?;
+    // let r = |s: &String| ->String{s.replace(r#"\\"#,r#"\"#)};
 
-    // let result = BackwardAnswer {
-    //     node: info.layer_node,
-    //     layer_idx: info.layer_idx,
-    //     weight_idx: info.weight_idx,
-    //     symbol: s,
-    //     value: v,
-    // };
+    let result = BackwardAnswer {
+        node: info.layer_node,
+        layer_idxs: info.layer_idxs,
+        weight_idxs: info.weight_idxs,
+        symbol: s,
+        value: v,
+    };
     // println!("{:?}",result);
-    Ok(HttpResponse::Ok().json(""))
+    Ok(HttpResponse::Ok().json(result))
 }
 
 #[get("/")]

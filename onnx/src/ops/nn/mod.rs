@@ -1,6 +1,7 @@
 use tract_hir::internal::*;
 use tract_hir::ops;
 use tract_hir::ops::{cnn, nn};
+use tract_hir::utils::MathGen;
 
 use crate::model::{OnnxOpRegister, ParsingContext};
 use crate::pb::NodeProto;

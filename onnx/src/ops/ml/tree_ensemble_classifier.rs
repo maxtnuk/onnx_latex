@@ -3,6 +3,7 @@ use crate::pb::NodeProto;
 use crate::pb_helpers::*;
 use std::iter;
 use tract_hir::internal::*;
+use tract_hir::utils::MathGen;
 use tract_onnx_opl::ml::tree::*;
 
 pub fn register_all_ops(reg: &mut OnnxOpRegister) {

@@ -1,5 +1,7 @@
+use crate::infer::*;
 use crate::internal::*;
-use crate::{infer::*, utils::MathGen};
+use crate::utils::FormulKind;
+use crate::utils::MathGen;
 
 use tract_core::ops::source::{SourceState, TypedSource};
 
@@ -12,6 +14,7 @@ impl MathGen for Source {
         FormulKind::Input
     }
 }
+
 
 impl Op for Source {
     fn name(&self) -> Cow<str> {

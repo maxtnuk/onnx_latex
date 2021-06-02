@@ -175,12 +175,8 @@ impl ShapeFactoid {
     }
 
     pub fn rank(&self) -> IntFactoid {
-        if self.open {
-            GenericFactoid::Any
-        } else {
-            GenericFactoid::Only(self.dims.len() as i64)
-        }
-        .into()
+        if self.open { GenericFactoid::Any } else { GenericFactoid::Only(self.dims.len() as i64) }
+            .into()
     }
 
     pub fn ensure_rank_at_least(&mut self, n: usize) -> bool {
@@ -213,11 +209,7 @@ impl ShapeFactoid {
         if self.open {
             return Ok(None);
         }
-        Ok(self
-            .dims
-            .iter()
-            .map(|d| d.concretize().and_then(|d| d.to_usize().ok()))
-            .collect())
+        Ok(self.dims.iter().map(|d| d.concretize().and_then(|d| d.to_usize().ok())).collect())
     }
 }
 
@@ -290,21 +282,13 @@ impl FromIterator<TDim> for ShapeFactoid {
 impl FromIterator<usize> for ShapeFactoid {
     /// Converts an iterator over usize into a closed shape.
     fn from_iter<I: IntoIterator<Item = usize>>(iter: I) -> ShapeFactoid {
-        ShapeFactoid::closed(
-            iter.into_iter()
-                .map(|d| GenericFactoid::Only(d.to_dim()))
-                .collect(),
-        )
+        ShapeFactoid::closed(iter.into_iter().map(|d| GenericFactoid::Only(d.to_dim())).collect())
     }
 }
 
 impl<D: ToDim, I: IntoIterator<Item = D>> From<I> for ShapeFactoid {
     fn from(it: I) -> ShapeFactoid {
-        ShapeFactoid::closed(
-            it.into_iter()
-                .map(|d| GenericFactoid::Only(d.to_dim()))
-                .collect(),
-        )
+        ShapeFactoid::closed(it.into_iter().map(|d| GenericFactoid::Only(d.to_dim())).collect())
     }
 }
 

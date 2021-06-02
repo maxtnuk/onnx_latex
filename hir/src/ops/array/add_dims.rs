@@ -1,5 +1,6 @@
 use crate::infer::*;
 use crate::internal::*;
+use crate::utils::MathGen;
 use tract_itertools::Itertools;
 
 #[derive(Debug, Clone, new, Hash)]
@@ -45,10 +46,7 @@ impl Expansion for AddDims {
     ) -> InferenceResult {
         check_output_arity(&outputs, 1)?;
         s.equals(&outputs[0].datum_type, &inputs[0].datum_type)?;
-        s.equals(
-            &outputs[0].rank,
-            (&inputs[0].rank).bex() + self.axes.len() as i64,
-        )?;
+        s.equals(&outputs[0].rank, (&inputs[0].rank).bex() + self.axes.len() as i64)?;
         s.given(&inputs[0].shape, move |s, shape| {
             let output_shape = self.compute_shape(&shape);
             s.equals(&outputs[0].shape, output_shape)
@@ -69,11 +67,8 @@ impl Expansion for AddDims {
             .map(|&axis| if axis < 0 { axis + rank } else { axis } as usize)
             .sorted();
         for axis in axes {
-            wire = model.wire_node(
-                format!("{}.axis-{}", prefix, axis),
-                AxisOp::Add(axis),
-                &wire,
-            )?;
+            wire =
+                model.wire_node(format!("{}.axis-{}", prefix, axis), AxisOp::Add(axis), &wire)?;
         }
         Ok(wire)
     }

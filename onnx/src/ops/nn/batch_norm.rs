@@ -1,5 +1,6 @@
 use tract_hir::internal::*;
 use tract_hir::ops::nn::DataFormat;
+use tract_hir::utils::MathGen;
 use tract_num_traits::AsPrimitive;
 
 #[derive(Debug, Clone, new, Default, Educe)]

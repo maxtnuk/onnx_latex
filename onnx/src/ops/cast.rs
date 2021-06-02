@@ -2,6 +2,7 @@ use crate::model::ParsingContext;
 use crate::pb::*;
 use tract_hir::internal::*;
 use tract_hir::tract_core::ops::element_wise::*;
+use tract_hir::utils::MathGen;
 
 pub fn cast(
     _ctx: &ParsingContext,

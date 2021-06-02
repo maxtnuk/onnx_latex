@@ -1,6 +1,8 @@
 use crate::model::ParsingContext;
 use crate::pb::*;
 use tract_hir::internal::*;
+use tract_hir::utils::FormulKind;
+use tract_hir::utils::MathGen;
 
 pub fn clip(
     ctx: &ParsingContext,

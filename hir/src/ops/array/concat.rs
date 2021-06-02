@@ -1,5 +1,6 @@
 use crate::infer::*;
 use crate::internal::*;
+use crate::utils::MathGen;
 
 pub use tract_core::ops::array::{ConcatSlice, TypedConcat};
 
@@ -10,8 +11,7 @@ pub struct Concat {
 }
 
 impl_dyn_hash!(Concat);
-impl MathGen for Concat {}
-
+impl MathGen for Concat{}
 impl Concat {
     fn resolve_axis(&self, rank: i64) -> TractResult<usize> {
         if 0 <= self.axis && self.axis <= rank - 1 {
@@ -19,11 +19,7 @@ impl Concat {
         } else if -rank <= self.axis && self.axis < 0 {
             Ok((self.axis + rank) as usize)
         } else {
-            bail!(
-                "Illegal combination of values for rank and axis: {} and {}",
-                rank,
-                self.axis
-            )
+            bail!("Illegal combination of values for rank and axis: {} and {}", rank, self.axis)
         }
     }
 }
@@ -45,14 +41,11 @@ impl Expansion for Concat {
         s.equals(&outputs[0].rank, &inputs[0].rank)?;
         let n = inputs.len() as usize;
         s.equals_all((0..n).map(|i| (&inputs[i].rank).bex()).collect())?;
-        s.given_all(
-            (0..n).map(|i| (&inputs[i].datum_type).bex()),
-            move |s, dts| {
-                let super_type: DatumType = DatumType::super_type_for(&dts)
-                    .with_context(|| format!("No supertype found for {:?}", dts))?;
-                s.equals(&outputs[0].datum_type, super_type)
-            },
-        )?;
+        s.given_all((0..n).map(|i| (&inputs[i].datum_type).bex()), move |s, dts| {
+            let super_type: DatumType = DatumType::super_type_for(&dts)
+                .with_context(|| format!("No supertype found for {:?}", dts))?;
+            s.equals(&outputs[0].datum_type, super_type)
+        })?;
         s.given(&inputs[0].rank, move |s, rank| {
             let axis = self.resolve_axis(rank as i64)?;
             s.equals(
@@ -99,10 +92,7 @@ impl Expansion for Concat {
             match &fact.konst {
                 Some(c_input) => {
                     slices.push(ConcatSlice::Const(
-                        c_input
-                            .cast_to_dt(super_type)?
-                            .into_owned()
-                            .into_arc_tensor(),
+                        c_input.cast_to_dt(super_type)?.into_owned().into_arc_tensor(),
                     ));
                 }
                 None => {

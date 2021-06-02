@@ -1,4 +1,5 @@
 use crate::internal::*;
+use crate::utils::MathGen;
 
 use tract_core::ops::nn::Reduce as TReduce;
 use tract_core::ops::nn::Reducer as TReducer;
@@ -118,7 +119,7 @@ pub struct Reduce {
 }
 
 impl_dyn_hash!(Reduce);
-impl MathGen for Reduce {}
+impl MathGen for Reduce{}
 
 impl Reduce {
     pub fn must_reduce(&self, ax: usize, rank: usize) -> bool {
@@ -133,10 +134,7 @@ impl Reduce {
             }
         };
 
-        resolved_axes
-            .as_ref()
-            .map(|axes| axes.contains(&ax))
-            .unwrap_or(true)
+        resolved_axes.as_ref().map(|axes| axes.contains(&ax)).unwrap_or(true)
     }
 
     fn output_shape(&self, shape: &[TDim]) -> TVec<TDim> {
@@ -163,21 +161,14 @@ impl Reduce {
         } else if -(rank as i64) <= axis && axis < 0 {
             Ok((axis + rank as i64) as usize)
         } else {
-            bail!(
-                "Illegal combination of values for rank and axis: {} and {}",
-                rank,
-                axis
-            )
+            bail!("Illegal combination of values for rank and axis: {} and {}", rank, axis)
         }
     }
 
     fn resolve_axes(&self, input_rank: usize) -> TractResult<TVec<usize>> {
         let mut axes: TVec<usize> = match self.axes.as_ref() {
             None => Ok((0..input_rank).collect()),
-            Some(axis) => axis
-                .iter()
-                .map(|&a| Self::resolve_axis(a, input_rank))
-                .collect(),
+            Some(axis) => axis.iter().map(|&a| Self::resolve_axis(a, input_rank)).collect(),
         }?;
         axes.sort();
         Ok(axes)
@@ -189,10 +180,7 @@ impl Expansion for Reduce {
         format!("Reduce<{:?}>", self.reducer).into()
     }
     fn info(&self) -> TractResult<Vec<String>> {
-        Ok(vec![format!(
-            "axes: {:?} keep_dims: {}",
-            self.axes, self.keep_dims
-        )])
+        Ok(vec![format!("axes: {:?} keep_dims: {}", self.axes, self.keep_dims)])
     }
     op_hir!();
 

@@ -1,4 +1,4 @@
-use crate::{internal::*, utils::MathGen};
+use crate::{internal::*, utils::{FormulKind, MathGen}};
 use tract_core::internal::*;
 
 pub fn expand<E: Expansion>(e: E) -> Box<dyn InferenceOp> {
@@ -45,6 +45,8 @@ pub trait Expansion:
 
 tract_core::dyn_clone::clone_trait_object!(Expansion);
 
+
+
 impl Hash for Box<dyn Expansion> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::hash::Hash::hash(&self.type_id(), state);
@@ -53,6 +55,33 @@ impl Hash for Box<dyn Expansion> {
 }
 
 impl_dyn_hash!(Box<dyn Expansion>);
+impl MathGen for Box<dyn Expansion> {
+    fn get_original_type(&self) -> FormulKind {
+        self.as_ref().get_original_type()
+    }
+    fn gen_forward(&self, extra_symbol: Option<String>, idx: usize) -> String {
+        self.as_ref().gen_forward(extra_symbol, idx)
+    }
+
+    fn gen_forward_value(
+        &self,
+        inputs: Vec<String>,
+        input_shape: Option<Vec<usize>>,
+        output_shape: Option<Vec<usize>>,
+    ) -> String {
+        self.as_ref()
+            .gen_forward_value(inputs, input_shape, output_shape)
+    }
+
+    fn gen_backward(&self, upper: String, under: String) -> String {
+        self.as_ref().gen_backward(upper, under)
+    }
+
+    fn gen_backward_value(&self, inputs: Vec<String>) -> Option<String> {
+        self.as_ref().gen_backward_value(inputs)
+    }
+}
+
 
 impl Op for Box<dyn Expansion> {
     fn name(&self) -> Cow<str> {
@@ -87,32 +116,6 @@ impl EvalOp for Box<dyn Expansion> {
         SimplePlan::new(adhoc)?.run(inputs.into_iter().map(|t| t.into_tensor()).collect())
     }
 }
-impl MathGen for Box<dyn Expansion> {
-    fn get_original_type(&self) -> FormulKind {
-        self.as_ref().get_original_type()
-    }
-    fn gen_forward(&self, extra_symbol: Option<String>, idx: usize) -> String {
-        self.as_ref().gen_forward(extra_symbol, idx)
-    }
-
-    fn gen_forward_value(
-        &self,
-        inputs: Vec<String>,
-        input_shape: Option<Vec<usize>>,
-        output_shape: Option<Vec<usize>>,
-    ) -> String {
-        self.as_ref()
-            .gen_forward_value(inputs, input_shape, output_shape)
-    }
-
-    fn gen_backward(&self, upper: String, under: String) -> String {
-        self.as_ref().gen_backward(upper, under)
-    }
-
-    fn gen_backward_value(&self, inputs: Vec<String>) -> Option<String> {
-        self.as_ref().gen_backward_value(inputs)
-    }
-}
 
 impl InferenceRulesOp for Box<dyn Expansion> {
     fn rules<'r, 'p: 'r, 's: 'r>(
@@ -136,11 +139,7 @@ impl InferenceRulesOp for Box<dyn Expansion> {
         for (ix, o) in outputs.iter().enumerate() {
             let expected = &node.outputs[ix].fact;
             let got = target.outlet_fact(*o)?;
-            if expected
-                .clone()
-                .unify_with(&InferenceFact::from(got))
-                .is_err()
-            {
+            if expected.clone().unify_with(&InferenceFact::from(got)).is_err() {
                 bail!("Output mismatch after rewiring expansion for output #{}: expected {:?} got {:?}", ix, expected, got);
             }
         }
@@ -167,11 +166,7 @@ where
         + Sync
         + 'static,
 {
-    expand(InferenceWrapper {
-        typed_op: Box::new(op),
-        rules: Arc::new(rules),
-        outputs,
-    })
+    expand(InferenceWrapper { typed_op: Box::new(op), rules: Arc::new(rules), outputs })
 }
 
 #[derive(Clone, new, Educe)]
@@ -192,13 +187,13 @@ pub struct InferenceWrapper {
     >,
     outputs: usize,
 }
-impl MathGen for InferenceWrapper {}
 
 impl std::fmt::Debug for InferenceWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.typed_op, f)
     }
 }
+impl MathGen for InferenceWrapper {}
 
 impl Expansion for InferenceWrapper {
     fn name(&self) -> Cow<str> {

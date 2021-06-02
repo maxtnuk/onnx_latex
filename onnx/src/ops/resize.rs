@@ -2,6 +2,7 @@ use crate::model::ParsingContext;
 use crate::pb::*;
 use std::hash::Hash;
 use tract_hir::internal::*;
+use tract_hir::utils::MathGen;
 
 pub fn resize(
     _ctx: &ParsingContext,

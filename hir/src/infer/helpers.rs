@@ -6,11 +6,8 @@ pub fn infer_forward_concrete(
     op: &dyn Op,
     inputs: &Vec<&InferenceFact>,
 ) -> TractResult<Option<TVec<InferenceFact>>> {
-    let input_values: TVec<_> = inputs
-        .iter()
-        .filter_map(|t| t.value.concretize())
-        .map(|v| v.clone().into())
-        .collect();
+    let input_values: TVec<_> =
+        inputs.iter().filter_map(|t| t.value.concretize()).map(|v| v.clone().into()).collect();
 
     if input_values.len() < inputs.len() {
         debug!("Can't infer value: some inputs are still unknown.");
@@ -33,11 +30,7 @@ pub fn infer_shape_broadcasting(shapes: &[&ShapeFactoid]) -> TractResult<Option<
         return Ok(None);
     }
 
-    let bound = shapes
-        .iter()
-        .map(|s| s.rank().concretize().unwrap())
-        .max()
-        .unwrap() as usize;
+    let bound = shapes.iter().map(|s| s.rank().concretize().unwrap()).max().unwrap() as usize;
 
     let mut output_shape: TVec<DimFact> = tvec![];
 

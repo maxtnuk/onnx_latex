@@ -23,8 +23,8 @@ num-integer = "0.1"
 prost = "0.7"
 smallvec = "1"
 tract-hir = {path="../hir"}
-tract-nnef = "=0.14.0"
-tract-onnx-opl = "=0.14.0"
+tract-nnef = {version="=0.14.1"}
+tract-onnx-opl = {version="=0.14.1"}
 serde = {version="1.0",features = ["derive"]}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

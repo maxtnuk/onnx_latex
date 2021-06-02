@@ -1,5 +1,6 @@
 use crate::infer::*;
 use crate::internal::*;
+use crate::utils::MathGen;
 
 #[derive(Debug, Clone, new, Default, Hash)]
 pub struct Crop {
@@ -9,7 +10,7 @@ pub struct Crop {
 }
 
 impl_dyn_hash!(Crop);
-impl MathGen for Crop {}
+impl MathGen for Crop{}
 
 impl Expansion for Crop {
     fn name(&self) -> Cow<str> {

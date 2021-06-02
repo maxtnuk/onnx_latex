@@ -129,11 +129,7 @@ impl<M: BorrowMut<InferenceModel>> Analyser<M> {
                 let outputs: TVec<&InferenceFact> = outputs.iter().collect();
                 let observed: TVec<&InferenceFact> = observed.iter().map(|p| &p.1).collect();
 
-                self.model
-                    .borrow_mut()
-                    .node_mut(node)
-                    .op
-                    .infer(inputs, outputs, observed)?
+                self.model.borrow_mut().node_mut(node).op.infer(inputs, outputs, observed)?
             };
 
             let node = self.model.borrow().node(node);
@@ -151,10 +147,7 @@ impl<M: BorrowMut<InferenceModel>> Analyser<M> {
             }
 
             for (ix, inferred_fact) in inferred.1.iter().enumerate() {
-                let old_fact = self
-                    .model
-                    .borrow()
-                    .outlet_fact(OutletId::new(node.id, ix))?;
+                let old_fact = self.model.borrow().outlet_fact(OutletId::new(node.id, ix))?;
                 let unified = old_fact.unify(inferred_fact)?;
 
                 if &unified != old_fact {
@@ -174,9 +167,7 @@ impl<M: BorrowMut<InferenceModel>> Analyser<M> {
             }
         }
         for (outlet, fact) in &changed_edges {
-            self.model
-                .borrow_mut()
-                .set_outlet_fact(*outlet, fact.clone())?;
+            self.model.borrow_mut().set_outlet_fact(*outlet, fact.clone())?;
         }
         Ok(changed_edges)
     }

@@ -1,6 +1,7 @@
 use crate::model::ParsingContext;
 use crate::pb::NodeProto;
 use tract_hir::internal::*;
+use tract_hir::utils::MathGen;
 
 pub fn instance_normalization(
     _ctx: &ParsingContext,

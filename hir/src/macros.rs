@@ -96,18 +96,12 @@ mod tests {
 
     #[test]
     fn shape_macro_closed_2() {
-        assert_eq!(
-            shapefactoid![1],
-            ShapeFactoid::closed(tvec![GenericFactoid::Only(1)])
-        );
+        assert_eq!(shapefactoid![1], ShapeFactoid::closed(tvec![GenericFactoid::Only(1)]));
     }
 
     #[test]
     fn shape_macro_closed_3() {
-        assert_eq!(
-            shapefactoid![(1 + 1)],
-            ShapeFactoid::closed(vec![GenericFactoid::Only(2)])
-        );
+        assert_eq!(shapefactoid![(1 + 1)], ShapeFactoid::closed(vec![GenericFactoid::Only(2)]));
     }
 
     #[test]
@@ -137,18 +131,12 @@ mod tests {
 
     #[test]
     fn shape_macro_open_2() {
-        assert_eq!(
-            shapefactoid![1; ..],
-            ShapeFactoid::open(vec![GenericFactoid::Only(1)])
-        );
+        assert_eq!(shapefactoid![1; ..], ShapeFactoid::open(vec![GenericFactoid::Only(1)]));
     }
 
     #[test]
     fn shape_macro_open_3() {
-        assert_eq!(
-            shapefactoid![(1 + 1); ..],
-            ShapeFactoid::open(vec![GenericFactoid::Only(2)])
-        );
+        assert_eq!(shapefactoid![(1 + 1); ..], ShapeFactoid::open(vec![GenericFactoid::Only(2)]));
     }
 
     #[test]

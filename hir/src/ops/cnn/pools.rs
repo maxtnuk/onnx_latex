@@ -63,13 +63,10 @@ pub fn rules_for_shape<'r, 'p: 'r, 's: 'r>(
         );
         for o in 0..outputs.len() {
             for (ix, d) in computed.iter().enumerate() {
-                s.equals(&outputs[o].shape[ix + ishape.h_axis()], &d.output)?;
+                s.equals(&outputs[o].shape[ix + ishape.h_axis()], &d.convoluted)?;
             }
             if ishape.n_axis().is_some() {
-                s.equals(
-                    &outputs[o].shape[ishape.n_axis().unwrap()],
-                    ishape.n_dim().unwrap(),
-                )?;
+                s.equals(&outputs[o].shape[ishape.n_axis().unwrap()], ishape.n_dim().unwrap())?;
             }
             if let Some(c) = pool_spec.output_channel_override {
                 s.equals(&outputs[o].shape[ishape.c_axis()], c.to_dim())?;

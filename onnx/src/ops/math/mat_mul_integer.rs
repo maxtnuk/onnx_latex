@@ -2,6 +2,7 @@ use crate::model::ParsingContext;
 use crate::pb::*;
 use tract_core::ops::matmul::*;
 use tract_hir::internal::*;
+use tract_hir::utils::MathGen;
 
 pub fn mat_mul_integer(
     _ctx: &ParsingContext,

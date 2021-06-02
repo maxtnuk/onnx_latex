@@ -2,6 +2,8 @@ use crate::model::ParsingContext;
 use crate::pb::*;
 use tract_hir::internal::*;
 use tract_hir::ops;
+use tract_hir::utils::FormulKind;
+use tract_hir::utils::MathGen;
 
 pub fn gemm(
     _ctx: &ParsingContext,

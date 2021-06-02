@@ -1,5 +1,6 @@
 use crate::infer::*;
 use crate::internal::*;
+use crate::utils::MathGen;
 
 #[derive(Debug, Clone, new, Default, Hash)]
 pub struct Split {
@@ -9,7 +10,7 @@ pub struct Split {
 }
 
 impl_dyn_hash!(Split);
-impl MathGen for Split {}
+impl MathGen for Split{}
 impl Split {
     fn split_dims<D: DimLike>(&self, input: &D) -> TractResult<TVec<D>> {
         if let Some(ref split) = self.split.as_ref() {
@@ -40,11 +41,8 @@ impl Expansion for Split {
             s.equals(&inputs[0].rank, &outputs[i].rank)
         })?;
         s.given(&inputs[0].shape, move |s, shape| {
-            let axis = if self.axis < 0 {
-                self.axis + shape.len() as isize
-            } else {
-                self.axis
-            } as usize;
+            let axis =
+                if self.axis < 0 { self.axis + shape.len() as isize } else { self.axis } as usize;
             let dims = self.split_dims(&shape[axis])?;
             for i in 0..self.outputs {
                 let mut shape = shape.clone();
@@ -69,11 +67,8 @@ impl Expansion for Split {
         let input = target.outlet_fact(inputs[0])?.clone();
         let mut outputs = tvec!();
         let mut current = 0.to_dim();
-        let axis = if self.axis < 0 {
-            self.axis + input.rank() as isize
-        } else {
-            self.axis
-        } as usize;
+        let axis =
+            if self.axis < 0 { self.axis + input.rank() as isize } else { self.axis } as usize;
         for len in self.split_dims(&input.shape[axis])? {
             let end = current.clone() + len;
             outputs.push(

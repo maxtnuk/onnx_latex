@@ -1,12 +1,13 @@
 use crate::infer::*;
 use crate::internal::*;
+use crate::utils::MathGen;
 
 use tract_core::ops::array::MultiBroadcastTo as Typed;
 
 #[derive(Debug, Clone, new, Default, Hash)]
 pub struct MultiBroadcastTo;
 impl_dyn_hash!(MultiBroadcastTo);
-impl MathGen for MultiBroadcastTo {}
+impl MathGen for MultiBroadcastTo{}
 
 impl Expansion for MultiBroadcastTo {
     fn name(&self) -> Cow<str> {

@@ -1,4 +1,4 @@
-use tract_hir::internal::*;
+use tract_hir::{internal::*, utils::MathGen};
 use tract_ndarray::Dimension;
 
 #[derive(Debug, Clone, new, Default, Hash)]

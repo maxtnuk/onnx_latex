@@ -1,13 +1,13 @@
 use crate::infer::*;
 use crate::internal::*;
+use crate::utils::MathGen;
 
 #[derive(Debug, Clone, new, Hash)]
 pub struct Size {
     pub dt: DatumType,
 }
 impl_dyn_hash!(Size);
-impl MathGen for Size {}
-
+impl MathGen for Size{}
 impl Expansion for Size {
     fn name(&self) -> Cow<str> {
         "Size".into()
