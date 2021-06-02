@@ -1,3 +1,4 @@
+use actix_cors::Cors;
 use actix_multipart::Multipart;
 use actix_web::{App, Error, HttpResponse, HttpServer, Responder, dev::HttpResponseBuilder, error, get, http::{header, StatusCode}, post, web::{self, Buf}};
 
@@ -212,7 +213,9 @@ async fn main() -> std::io::Result<()> {
     std::fs::create_dir_all("./tmp").unwrap();
 
     HttpServer::new(|| {
+        let cors= Cors::default().allowed_origin("http://localhost:3000");
         App::new()
+            .wrap(cors)
             .service(hello)
             .service(echo)
             .service(backward)

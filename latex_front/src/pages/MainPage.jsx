@@ -22,7 +22,7 @@ import { style } from "@material-ui/system";
 import { reset_camera } from "api/camera";
 import GroupLayer from "components/GroupLayers";
 import { get_group_width } from "components/GroupLayers";
-import { ArrowHelper } from "three";
+import { Html } from "@react-three/drei"
 
 
 const MainaContainer = styled.div`
@@ -61,7 +61,7 @@ export const DragType={
 
 function MainPage() {
   // give mock data for test
-  let group_data = mock_groups;
+  let group_data = [];
 
   const [layerInfo, setlayerInfo] = useState({
     group_idx: -1,

@@ -7,7 +7,6 @@ const NameContainer= styled.div`
     opacity: 0.8;
 `;
 
-
 function LayerName(props){
     const name=props.name;
     const color=props.color;

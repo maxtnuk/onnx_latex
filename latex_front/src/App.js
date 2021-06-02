@@ -1,6 +1,6 @@
+import InitPage from "pages/InitPage";
 import React from "react";
 import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
-import ModelPage from "./pages/ModelPage";
 import MainPage from "./pages/MainPage";
 // import {Mobile, PC} from "./components/Media"
 
@@ -9,8 +9,8 @@ function App() {
     <>
       <Router>
         <Switch>
-          <Route path='/parse_model' component={ModelPage} /> 
-          <Route path='/' component={MainPage} /> 
+          <Route path='/' component={InitPage} /> 
+          <Route path='/parse_model' component={MainPage} /> 
         </Switch>
       </Router>
     </>
