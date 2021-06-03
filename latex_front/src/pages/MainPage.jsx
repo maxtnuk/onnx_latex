@@ -23,6 +23,7 @@ import { reset_camera } from "api/camera";
 import GroupLayer from "components/GroupLayers";
 import { get_group_width } from "components/GroupLayers";
 import { Html } from "@react-three/drei"
+import mock_d2 from "mock/D2LayerMock";
 
 
 const MainaContainer = styled.div`
@@ -58,10 +59,45 @@ const MenuController = styled.div`
 export const DragType={
   MainPage: "main_page"
 }
+// check each layer is end of group
+function check_end_group(op_name){
+  const end_list=["pool","clip"];
+  const l_str=op_name.toLowerCase();
+  return end_list.some((e)=>{return l_str.includes(e);})
+}
+
+function configure_model(models){
+    const senario=models.senario;
+    const symbol_map=models.symbol_map;
+    let group_count=0;
+    let layer_count=0;
+    let groups=[]
+    let layers=[]
+    for (const i of senario){
+      const each_layer=symbol_map[i];
+      console.log(each_layer)
+      layers.push({
+        ...each_layer,
+        layer_num: layer_count,
+      });
+      layer_count+=1;
+      // if it is end layer, then create new group
+      if (check_end_group(each_layer.op_name)){
+        let group= {
+          group: group_count,
+          layers: layers
+        }
+        groups.push(group);
+        layers=[];
+        layer_count=0;
+        group_count+=1;
+      }
+    }
+    return groups;
+}
 
 function MainPage() {
   // give mock data for test
-  let group_data = [];
 
   const [layerInfo, setlayerInfo] = useState({
     group_idx: -1,
@@ -72,8 +108,19 @@ function MainPage() {
   });
 
   const ReduxBridge = useContextBridge(ReactReduxContext);
+  const model_form = useSelector(state => state.model);
   const layer = useSelector((state) => state.layer);
   const dispatch = useDispatch();
+
+  // first memo recieved data
+  let group_data = useMemo(
+    () =>{
+      // return configure_model(model_form);
+      // just for test 
+      return mock_d2
+    },
+  [model_form])
+  console.log(group_data)
 
   // state side menu open 
   const [open, setopen] = useState(false);
@@ -93,6 +140,7 @@ function MainPage() {
   }, [layer]);
 
   let before_content=0;
+  // visual scale
   const ratio=10;
   const term = 3;
   // generate groups base on gorup_data 
@@ -161,10 +209,6 @@ return (
           >
             Close
           </button>
-          <h1>Layer num: {layerInfo.layer_num}</h1>
-          <h2>layer channel: {layerInfo.channel}</h2>
-          <h2>layer width: {layerInfo.width}</h2>
-          <h2>layer height: {layerInfo.height}</h2>
         </SideComponent>
       </SidePane>
       {/* controller part */}

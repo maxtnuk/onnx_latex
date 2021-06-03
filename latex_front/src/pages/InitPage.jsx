@@ -8,6 +8,8 @@ import { Modal } from "@material-ui/core";
 import ReactInterval from "react-interval";
 import LoadingModel from "components/LoadingModel";
 import { forwardRef } from "react";
+import { set_model } from "api/model";
+import { useHistory } from "react-router";
 
 const RootDiv = styled.div`
   overflow: hidden;
@@ -58,6 +60,7 @@ function InitPage() {
   const dispatch = useDispatch(state => state.model)
   const depth = 3;
 
+  const history = useHistory();
   const [timerstart, settimerstart] = useState(false);
   const [loadingpopup, setloadingpopup] = useState(false);
   const [modelRequest, setmodelRequest] = useState({
@@ -79,7 +82,11 @@ function InitPage() {
       setloadingpopup(false);
     }
     settimerstart(false);
-    console.log(res_model)
+    if (res_model.senario!==undefined){
+      console.log(res_model)
+      dispatch(set_model(res_model.senario,res_model.symbol_map))
+      history.push('/parse_model')
+    }
   }, [res_model])
   useEffect(() => {
     if (loadingpopup) {

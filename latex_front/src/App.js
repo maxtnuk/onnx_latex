@@ -9,8 +9,8 @@ function App() {
     <>
       <Router>
         <Switch>
-          <Route path='/' component={InitPage} /> 
-          <Route path='/parse_model' component={MainPage} /> 
+          <Route exact path="/" component={InitPage} />
+          <Route path="/parse_model" component={MainPage} />
         </Switch>
       </Router>
     </>

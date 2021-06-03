@@ -8,6 +8,7 @@ import { Box } from "@react-three/drei";
 import { Html } from "@react-three/drei"
 import { useThree } from "@react-three/fiber";
 import LayerName from "./LayerName";
+import { cloneDeep } from "lodash";
 
 // draw 3d layer 
 function D3Layer(props) {
@@ -30,7 +31,9 @@ function D3Layer(props) {
 
   const color=props.color
 
-  const geometry = new THREE.BoxGeometry(bs[0], bs[1], bs[2]);
+  const lines=[bs[1], bs[2], bs[3]]
+
+  const geometry = new THREE.BoxGeometry(lines[0], lines[1], lines[2]);
   // get cube edge 
   const edges = new THREE.EdgesGeometry(geometry);
 
@@ -49,10 +52,12 @@ function D3Layer(props) {
   // setActive(false)
 
   const html_object=useRef();
-
+  const new_point= cloneDeep(props.position);
+  new_point[1]+=lines[1]/2+1
   // Return the view, these are regular Threejs elements expressed in JSX
   return (
-    <mesh
+    <group>
+       <mesh
       {...props}
       onPointerOver={(event) => {
         // if (!hovered){
@@ -82,23 +87,25 @@ function D3Layer(props) {
       {/* box mesh  */}
       <Box
         // scale={active ? 1.2 : 1}
-        args={bs}>
+        args={lines}>
         <meshPhongMaterial color={color} opacity={0.5} transparent={true}/>
       </Box>
-      <Html distanceFactor={50}
+    </mesh>
+    <mesh
+      {...props}
+      position={new_point}
+    >
+    <Html distanceFactor={50}
         ref={html_object}
         center={true}
-        style={{
-          position: 'absolute',
-          top: -(bs[1]*ratio+25+name_padding*unit_padding),
-        }}
       >
         <LayerName
-          name={props.layer.op_type}
+          name={props.layer.op_name}
           color={color}
         />
       </Html>
     </mesh>
+    </group>
   )
 }
 export default D3Layer;
