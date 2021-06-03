@@ -10,7 +10,7 @@ const client=axios.create({
     
 });
 
-export function useGetModel(model_file, depth) {
+export function useGetModel(model_request) {
     const [error, seterror] = useState({})
     const [senario, setsenario] = useState([])
     const [symbol_map, setsymbol_map] = useState([])
@@ -34,7 +34,7 @@ export function useGetModel(model_file, depth) {
             try {
                 setduring(true);
                 let formdata = new FormData();
-                formdata.append('model',request_content.model)
+                formdata.append('model',request_content.file)
                 console.log(formdata)
                 let res = await client.post(
                     "/parse_model", formdata, {
@@ -56,13 +56,10 @@ export function useGetModel(model_file, depth) {
                 setduring(false);
             }
         }
-        , [model_file,depth])
+        , [model_request])
     
     useEffect(() => {
-        delayed_fetch({
-            model: model_file,
-            depth: depth
-        });
-    }, [model_file,depth])
+        delayed_fetch(model_request);
+    }, [model_request])
     return { error, during, senario, symbol_map }
 }

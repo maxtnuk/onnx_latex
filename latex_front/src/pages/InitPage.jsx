@@ -47,7 +47,7 @@ function InitPage() {
     depth: -1
   })
 
-  const { error, during, senario, symbol_map } = useGetModel(modelRequest.file,modelRequest.depth);
+  const { error, during, senario, symbol_map } = useGetModel(modelRequest);
   useEffect(() => {
     console.log("symbol");
     console.log(symbol_map);
