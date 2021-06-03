@@ -1,9 +1,13 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useRef } from "react";
 import styled from "styled-components";
 import Dropzone from "react-dropzone";
 import { useDispatch } from "react-redux";
 import { useGetModel } from "api/rest_api";
 import { useEffect } from "react";
+import { Modal } from "@material-ui/core";
+import ReactInterval from "react-interval";
+import LoadingModel from "components/LoadingModel";
+import { forwardRef } from "react";
 
 const RootDiv = styled.div`
   overflow: hidden;
@@ -37,28 +41,65 @@ const DropZoneDiv = styled.div`
   margin-bottom: 20px;
 `;
 
+const ForwardSpin = forwardRef((props,ref)=>{
+  return (
+    <LoadingModel
+    {...props}
+    ref={ref}
+  >
+
+  </LoadingModel>
+  )
+})
+
+
 function InitPage() {
-  const [isLoading, setisLoading] = useState(false)
 
   const dispatch = useDispatch(state => state.model)
-  const depth= 3;
+  const depth = 3;
+
+  const [timerstart, settimerstart] = useState(false);
+  const [loadingpopup, setloadingpopup] = useState(false);
   const [modelRequest, setmodelRequest] = useState({
     file: {},
     depth: -1
   })
 
-  const { error, during, senario, symbol_map } = useGetModel(modelRequest);
+  const { error, during, res_model } = useGetModel(modelRequest);
+
+  const spin_ref = useRef();
+  const timer = useRef();
+
   useEffect(() => {
-    console.log("symbol");
-    console.log(symbol_map);
-  }, [symbol_map])
+
+  }, [])
   useEffect(() => {
-   console.log("error");
-   console.log(error);
+    if (loadingpopup === true) {
+      // close popup
+      setloadingpopup(false);
+    }
+    settimerstart(false);
+    console.log(res_model)
+  }, [res_model])
+  useEffect(() => {
+    if (loadingpopup) {
+      // close popup
+      setloadingpopup(false);
+    }
+    settimerstart(false);
+    console.log(error)
+
   }, [error])
- 
+
   return (
     <RootDiv>
+      {/* timer for loading */}
+      <ReactInterval
+        ref={timer}
+        enabled={timerstart}
+        timeout={2000}
+        callback={() => { }}
+      />
       <CenterContent>
         <Title>
           ML Expression
@@ -70,13 +111,22 @@ function InitPage() {
         </div>
         <DropZoneDiv>
           <Dropzone
-            onDrop={(files) => { 
-              console.log("called")
+            onDrop={(files) => {
+              // if it takes long, popup modal
+              timer.current.callback = () => {
+                console.log("time out");
+                if (during) {
+                  setloadingpopup(true);
+                }
+                settimerstart(false);
+              };
+              settimerstart(true);
               setmodelRequest({
                 file: files[0],
                 depth: depth
               })
             }}
+            apply={"*.onnx"}
             maxFiles={1}
           >
             {({
@@ -106,8 +156,16 @@ function InitPage() {
             }}
           </Dropzone>
         </DropZoneDiv>
-
       </CenterContent>
+      <Modal
+        open={loadingpopup}
+        aria-labelledby="simple-modal-title"
+        aria-describedby="simple-modal-description"
+      >
+        <ForwardSpin
+        ref={spin_ref}>
+        </ForwardSpin>
+      </Modal>
     </RootDiv>
   );
 }

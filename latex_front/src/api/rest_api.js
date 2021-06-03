@@ -12,8 +12,7 @@ const client=axios.create({
 
 export function useGetModel(model_request) {
     const [error, seterror] = useState({})
-    const [senario, setsenario] = useState([])
-    const [symbol_map, setsymbol_map] = useState([])
+    const [res_model, setmodel] = useState({})
     const [during, setduring] = useState(false)
 
     const delayed_fetch= useCallback(
@@ -27,12 +26,12 @@ export function useGetModel(model_request) {
     const send_model = useCallback(
         async (request_content) => {
             // this mean initial request
+            setduring(true);
             console.log(request_content)
             if (request_content.depth===-1){
                 return
             }
             try {
-                setduring(true);
                 let formdata = new FormData();
                 formdata.append('model',request_content.file)
                 console.log(formdata)
@@ -43,17 +42,14 @@ export function useGetModel(model_request) {
                     }
                 }
                 )
-                console.log(res)
                 if (res.status == 200) {
                     const data = res.data
-                    setsenario(data.senario);
-                    setsymbol_map(data.symbol_map);
+                    setmodel(data);
                 }
                 setduring(false);
             } catch (error) {
-                console.log(error)
                 seterror(error);
-                setduring(false);
+                setduring(false);   
             }
         }
         , [model_request])
@@ -61,5 +57,5 @@ export function useGetModel(model_request) {
     useEffect(() => {
         delayed_fetch(model_request);
     }, [model_request])
-    return { error, during, senario, symbol_map }
+    return { error, during,res_model }
 }
