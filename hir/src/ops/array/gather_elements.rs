@@ -7,7 +7,7 @@ pub struct GatherElements {
     axis: i64,
 }
 impl_dyn_hash!(GatherElements);
-impl MathGen for GatherElements{}
+impl MathGen for GatherElements {}
 
 impl Expansion for GatherElements {
     fn name(&self) -> Cow<str> {
@@ -37,7 +37,15 @@ impl Expansion for GatherElements {
         inputs: &[OutletId],
     ) -> TractResult<TVec<OutletId>> {
         let input_rank = model.outlet_fact(inputs[0])?.rank();
-        let axis = if self.axis < 0 { self.axis + input_rank as i64 } else { self.axis } as usize;
-        model.wire_node(prefix, tract_core::ops::array::GatherElements { axis }, inputs)
+        let axis = if self.axis < 0 {
+            self.axis + input_rank as i64
+        } else {
+            self.axis
+        } as usize;
+        model.wire_node(
+            prefix,
+            tract_core::ops::array::GatherElements { axis },
+            inputs,
+        )
     }
 }

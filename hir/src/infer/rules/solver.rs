@@ -76,8 +76,10 @@ impl<'rules, T: Output + Factoid> Rule<'rules> for EqualsRule<T> {
         &self,
         context: &mut Context,
     ) -> TractResult<(bool, Vec<Box<dyn Rule<'rules> + 'rules>>)> {
-        let value =
-            self.items.iter().try_fold(T::default(), |acc, f| acc.unify(&f.get(context)?))?;
+        let value = self
+            .items
+            .iter()
+            .try_fold(T::default(), |acc, f| acc.unify(&f.get(context)?))?;
         let mut changed = false;
         for item in &self.items {
             changed |= item.set(context, value.clone())?;
@@ -290,8 +292,11 @@ impl<'rules, T: Output + Factoid> Rule<'rules> for GivenAllRule<'rules, T> {
         &self,
         context: &mut Context,
     ) -> TractResult<(bool, Vec<Box<dyn Rule<'rules> + 'rules>>)> {
-        let values: Vec<T> =
-            self.items.iter().map(|it| it.get(context)).collect::<TractResult<Vec<T>>>()?;
+        let values: Vec<T> = self
+            .items
+            .iter()
+            .map(|it| it.get(context))
+            .collect::<TractResult<Vec<T>>>()?;
         let concrete: Vec<_> = values.iter().filter_map(|it| it.concretize()).collect();
 
         if concrete.len() == self.items.len() {
@@ -637,7 +642,13 @@ impl<'rules> Solver<'rules> {
             ) -> InferenceResult
             + 'rules,
     {
-        let rule = Given4Rule::new(item_1.bex(), item_2.bex(), item_3.bex(), item_4.bex(), closure);
+        let rule = Given4Rule::new(
+            item_1.bex(),
+            item_2.bex(),
+            item_3.bex(),
+            item_4.bex(),
+            closure,
+        );
         self.rules.push(Box::new(rule));
         Ok(())
     }
@@ -660,7 +671,9 @@ mod tests {
     fn solver_wrong_size_1() {
         let (mut solver, inputs, _) = bootstrap();
         solver.equals(&inputs[0].rank, 2).unwrap();
-        solver.infer_facts((tvec![].into(), tvec![].into())).unwrap();
+        solver
+            .infer_facts((tvec![].into(), tvec![].into()))
+            .unwrap();
     }
 
     #[test]
@@ -668,7 +681,9 @@ mod tests {
         let (solver, _, _) = bootstrap();
         let any = InferenceFact::new();
 
-        let facts = solver.infer_facts((tvec![&any].into(), tvec![].into())).unwrap();
+        let facts = solver
+            .infer_facts((tvec![&any].into(), tvec![].into()))
+            .unwrap();
         assert_eq!(facts, (tvec![InferenceFact::new()].into(), tvec![].into()));
     }
 
@@ -679,8 +694,13 @@ mod tests {
 
         let any = InferenceFact::new();
         let facts = solver.infer_facts((tvec![&any], tvec![])).unwrap();
-        let expected =
-            (tvec![InferenceFact { shape: shapefactoid![_, _], ..InferenceFact::new() }], tvec![]);
+        let expected = (
+            tvec![InferenceFact {
+                shape: shapefactoid![_, _],
+                ..InferenceFact::new()
+            }],
+            tvec![],
+        );
 
         assert_eq!(facts, expected);
     }
@@ -693,7 +713,10 @@ mod tests {
         let any = InferenceFact::new();
         let facts = solver.infer_facts((tvec![&any], tvec![])).unwrap();
         let expected = (
-            tvec![InferenceFact { shape: shapefactoid![_, 0; ..], ..InferenceFact::new() }],
+            tvec![InferenceFact {
+                shape: shapefactoid![_, 0; ..],
+                ..InferenceFact::new()
+            }],
             tvec![],
         );
 
@@ -704,14 +727,21 @@ mod tests {
     fn solver_ranks() {
         let (mut solver, inputs, _) = bootstrap();
         solver.equals(&inputs[0].rank, 3).unwrap();
-        solver.equals(&inputs[0].shape[0], &inputs[0].shape[1]).unwrap();
-        solver.equals(&inputs[0].shape[1], &inputs[0].shape[2]).unwrap();
+        solver
+            .equals(&inputs[0].shape[0], &inputs[0].shape[1])
+            .unwrap();
+        solver
+            .equals(&inputs[0].shape[1], &inputs[0].shape[2])
+            .unwrap();
         solver.equals(&inputs[0].shape[1], 3.to_dim()).unwrap();
 
         let any = InferenceFact::new();
         let facts = solver.infer_facts((tvec![&any], tvec![])).unwrap();
         let expected = (
-            tvec![InferenceFact { shape: shapefactoid![3, 3, 3], ..InferenceFact::new() }],
+            tvec![InferenceFact {
+                shape: shapefactoid![3, 3, 3],
+                ..InferenceFact::new()
+            }],
             tvec![],
         );
 
@@ -736,7 +766,9 @@ mod tests {
     #[test]
     fn solver_backward_1() {
         let (mut solver, inputs, outputs) = bootstrap();
-        solver.equals(&inputs[0].shape[1], &outputs[0].shape[1]).unwrap();
+        solver
+            .equals(&inputs[0].shape[1], &outputs[0].shape[1])
+            .unwrap();
 
         let any = InferenceFact::new();
         let facts = solver.infer_facts((tvec![&any], tvec![&any])).unwrap();
@@ -750,13 +782,21 @@ mod tests {
     #[test]
     fn solver_backward_2() {
         let (mut solver, inputs, outputs) = bootstrap();
-        solver.equals(&inputs[0].shape[1], &outputs[0].shape[1]).unwrap();
+        solver
+            .equals(&inputs[0].shape[1], &outputs[0].shape[1])
+            .unwrap();
 
-        let output = InferenceFact { shape: shapefactoid![_, 2, _], ..InferenceFact::new() };
+        let output = InferenceFact {
+            shape: shapefactoid![_, 2, _],
+            ..InferenceFact::new()
+        };
         let any = InferenceFact::new();
         let facts = solver.infer_facts((tvec![&any], tvec![&output])).unwrap();
         let expected = (
-            tvec![InferenceFact { shape: shapefactoid![_, 2; ..], ..InferenceFact::new() }],
+            tvec![InferenceFact {
+                shape: shapefactoid![_, 2; ..],
+                ..InferenceFact::new()
+            }],
             tvec![output.clone()],
         );
 

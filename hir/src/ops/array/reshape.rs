@@ -6,7 +6,7 @@ use crate::utils::MathGen;
 pub struct Reshape {}
 
 impl_dyn_hash!(Reshape);
-impl MathGen for Reshape{}
+impl MathGen for Reshape {}
 impl Expansion for Reshape {
     fn name(&self) -> Cow<str> {
         "Reshape".into()
@@ -21,13 +21,17 @@ impl Expansion for Reshape {
         outputs: &'p [TensorProxy],
     ) -> InferenceResult {
         s.equals(&outputs[0].datum_type, &inputs[0].datum_type)?;
-        s.given_2(&inputs[0].shape, &inputs[1].value, move |s, ishape, shape| {
-            let shape = shape.cast_to::<TDim>()?;
-            let shape = shape.as_slice::<TDim>()?;
-            let oshape = compute_shape(&ishape, &shape)
-                .with_context(|| format!("Reshaping {:?} to {:?}", ishape, shape))?;
-            s.equals(&outputs[0].shape, ShapeFactoid::from(oshape))
-        })
+        s.given_2(
+            &inputs[0].shape,
+            &inputs[1].value,
+            move |s, ishape, shape| {
+                let shape = shape.cast_to::<TDim>()?;
+                let shape = shape.as_slice::<TDim>()?;
+                let oshape = compute_shape(&ishape, &shape)
+                    .with_context(|| format!("Reshaping {:?} to {:?}", ishape, shape))?;
+                s.equals(&outputs[0].shape, ShapeFactoid::from(oshape))
+            },
+        )
     }
 
     fn wire(
@@ -108,16 +112,20 @@ pub fn to_axis_ops(input_orig: &[TDim], output_spec: &[TDim]) -> TractResult<TVe
     let mut stack: TVec<AxisOp> = tvec!();
     'top: loop {
         let current_input =
-            stack.iter().try_fold(TVec::from(input_orig), |shape, op| -> TractResult<_> {
-                let mut shape = shape.into();
-                op.change_shape_array(&mut shape, false)?;
-                Ok(shape)
-            })?;
+            stack
+                .iter()
+                .try_fold(TVec::from(input_orig), |shape, op| -> TractResult<_> {
+                    let mut shape = shape.into();
+                    op.change_shape_array(&mut shape, false)?;
+                    Ok(shape)
+                })?;
         if &current_input == &final_output {
             return Ok(stack);
         }
-        if let Some(common) =
-            current_input.iter().zip(final_output.iter()).position(|(a, b)| a != b)
+        if let Some(common) = current_input
+            .iter()
+            .zip(final_output.iter())
+            .position(|(a, b)| a != b)
         {
             if current_input[common].is_one() {
                 stack.push(AxisOp::Rm(common));
@@ -128,12 +136,18 @@ pub fn to_axis_ops(input_orig: &[TDim], output_spec: &[TDim]) -> TractResult<TVe
                 // rank is expected to be somewhat reasonable
                 for i in common..current_input.len() {
                     let i_group = &current_input[common..i + 1];
-                    let i_volume: TDim =
-                        if let Ok(v) = i_group.iter().maybe_product() { v } else { break };
+                    let i_volume: TDim = if let Ok(v) = i_group.iter().maybe_product() {
+                        v
+                    } else {
+                        break;
+                    };
                     for o in common..final_output.len() {
                         let o_group = &final_output[common..o + 1];
-                        let o_volume: TDim =
-                            if let Ok(v) = o_group.iter().maybe_product() { v } else { break };
+                        let o_volume: TDim = if let Ok(v) = o_group.iter().maybe_product() {
+                            v
+                        } else {
+                            break;
+                        };
                         if i_volume == o_volume {
                             stack.push(AxisOp::Reshape(common, i_group.into(), o_group.into()));
                             continue 'top;
@@ -178,17 +192,26 @@ mod tests {
 
     #[test]
     fn compute_with_leading_zero() {
-        assert_eq!(&*compute_shape(s![3, 4, 5], s!(0, 0, 5)).unwrap(), s![3, 4, 5])
+        assert_eq!(
+            &*compute_shape(s![3, 4, 5], s!(0, 0, 5)).unwrap(),
+            s![3, 4, 5]
+        )
     }
 
     #[test]
     fn compute_with_leading_zero_with_flatten() {
-        assert_eq!(&*compute_shape(s![2, 3, 5, 7], s!(2, 0, 35)).unwrap(), s![2, 3, 35])
+        assert_eq!(
+            &*compute_shape(s![2, 3, 5, 7], s!(2, 0, 35)).unwrap(),
+            s![2, 3, 35]
+        )
     }
 
     #[test]
     fn compute_with_trailing_zero() {
-        assert_eq!(&*compute_shape(s![3, 4, 5], s!(3, -1, 0)).unwrap(), s![3, 4, 5])
+        assert_eq!(
+            &*compute_shape(s![3, 4, 5], s!(3, -1, 0)).unwrap(),
+            s![3, 4, 5]
+        )
     }
 
     #[test]
@@ -221,7 +244,10 @@ mod tests {
 
     #[test]
     fn axis_op_merge() {
-        assert_eq!(&*to_axis_ops(s![2, 3, 5, 7], s!(2, 0, 35)).unwrap(), &[r!(2 ; 5,7 => 35 )])
+        assert_eq!(
+            &*to_axis_ops(s![2, 3, 5, 7], s!(2, 0, 35)).unwrap(),
+            &[r!(2 ; 5,7 => 35 )]
+        )
     }
 
     #[test]

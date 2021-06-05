@@ -15,7 +15,10 @@ impl InferenceRulesOp for Pad {
         s.equals(&inputs[0].datum_type, &outputs[0].datum_type)?;
         s.equals(&inputs[0].rank, &outputs[0].rank)?;
         for (ix, &(a, b)) in self.pads.iter().enumerate() {
-            s.equals(&inputs[0].shape[ix], outputs[0].shape[ix].bex() - a.to_dim() - b.to_dim())?;
+            s.equals(
+                &inputs[0].shape[ix],
+                outputs[0].shape[ix].bex() - a.to_dim() - b.to_dim(),
+            )?;
         }
         Ok(())
     }

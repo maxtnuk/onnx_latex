@@ -10,7 +10,7 @@ pub struct LayerHardmax {
 }
 
 impl_dyn_hash!(LayerHardmax);
-impl MathGen for LayerHardmax{}
+impl MathGen for LayerHardmax {}
 
 impl Expansion for LayerHardmax {
     fn name(&self) -> Cow<str> {
@@ -38,16 +38,30 @@ impl Expansion for LayerHardmax {
         let input_fact = target.outlet_fact(input)?.clone();
         let input_dt = input_fact.datum_type;
         let rank = input_fact.rank();
-        let axis = if self.axis < 0 { rank as isize + self.axis } else { self.axis } as usize;
+        let axis = if self.axis < 0 {
+            rank as isize + self.axis
+        } else {
+            self.axis
+        } as usize;
         let suffix_dim: TDim = input_fact.shape[axis..].iter().maybe_product()?;
         let dim = suffix_dim
             .to_usize()
             .context("OneHot assumes known dimension on working axes suffix.")?;
-        let off = tensor0(0f32).cast_to_dt(input_dt)?.into_owned().into_arc_tensor();
-        let on = tensor0(1f32).cast_to_dt(input_dt)?.into_owned().into_arc_tensor();
+        let off = tensor0(0f32)
+            .cast_to_dt(input_dt)?
+            .into_owned()
+            .into_arc_tensor();
+        let on = tensor0(1f32)
+            .cast_to_dt(input_dt)?
+            .into_owned()
+            .into_arc_tensor();
         let mut wires = target.wire_node(
             format!("{}.reshaped", name),
-            AxisOp::Reshape(axis, input_fact.shape[axis..].into(), tvec!(suffix_dim.clone())),
+            AxisOp::Reshape(
+                axis,
+                input_fact.shape[axis..].into(),
+                tvec!(suffix_dim.clone()),
+            ),
             &[input],
         )?;
         wires = target.wire_node(
@@ -55,8 +69,11 @@ impl Expansion for LayerHardmax {
             nn::Reduce::new(tvec!(axis), nn::Reducer::ArgMax(false)),
             &wires,
         )?;
-        wires =
-            target.wire_node(format!("{}.rm_axis", name), change_axes::AxisOp::Rm(axis), &wires)?;
+        wires = target.wire_node(
+            format!("{}.rm_axis", name),
+            change_axes::AxisOp::Rm(axis),
+            &wires,
+        )?;
         wires = target.wire_node(
             format!("{}.hardmax", name),
             array::OneHot { axis, dim, off, on },
@@ -76,7 +93,7 @@ pub struct LayerLogSoftmax {
 }
 
 impl_dyn_hash!(LayerLogSoftmax);
-impl MathGen for LayerLogSoftmax{}
+impl MathGen for LayerLogSoftmax {}
 
 impl Expansion for LayerLogSoftmax {
     fn name(&self) -> Cow<str> {
@@ -101,7 +118,11 @@ impl Expansion for LayerLogSoftmax {
         inputs: &[OutletId],
     ) -> TractResult<TVec<OutletId>> {
         let softmax = LayerSoftmax { axis: self.axis }.wire(name, target, inputs)?;
-        target.wire_node(format!("{}.logsoftmax", name), tract_core::ops::math::ln(), &softmax)
+        target.wire_node(
+            format!("{}.logsoftmax", name),
+            tract_core::ops::math::ln(),
+            &softmax,
+        )
     }
 }
 
@@ -111,7 +132,7 @@ pub struct LayerSoftmax {
 }
 
 impl_dyn_hash!(LayerSoftmax);
-impl MathGen for LayerSoftmax{}
+impl MathGen for LayerSoftmax {}
 
 impl Expansion for LayerSoftmax {
     fn name(&self) -> Cow<str> {
@@ -137,7 +158,11 @@ impl Expansion for LayerSoftmax {
         use tract_core::ops::{math, nn};
         let input = inputs[0];
         let rank = target.outlet_fact(input)?.rank();
-        let axis = if self.axis < 0 { rank as isize + self.axis } else { self.axis } as usize;
+        let axis = if self.axis < 0 {
+            rank as isize + self.axis
+        } else {
+            self.axis
+        } as usize;
         let reducing_axes = (axis..rank).collect::<TVec<usize>>();
         let maxes = target.wire_node(
             format!("{}.max", name),
@@ -149,8 +174,11 @@ impl Expansion for LayerSoftmax {
             math::sub::bin_typed(),
             &[input, maxes],
         )?[0];
-        let exp =
-            target.wire_node(format!("{}.exp", name), tract_core::ops::math::exp(), &[normed])?[0];
+        let exp = target.wire_node(
+            format!("{}.exp", name),
+            tract_core::ops::math::exp(),
+            &[normed],
+        )?[0];
         let sum = target.wire_node(
             format!("{}.sum", name),
             nn::Reduce::new(reducing_axes, nn::Reducer::Sum),

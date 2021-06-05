@@ -17,13 +17,30 @@ const CircleContainer = styled.div`
     display: flex;
     flex-direction: column;
 `;
+// max circles 
 
-export function calc_2d_width(num_circles, proper_height) {
-    const radius = proper_height / num_circles / 2;
-    return radius * 2+term;
+const circle_radius = 10;
+
+export const term = 3;
+
+export function calc_2d_width(ratio) {
+    return circle_radius / ratio + 2 * term;
 }
 
-export const term=6;
+function make_circle(props,radius,new_position){
+    return (
+        <mesh
+            {...props}
+            position={new_position}
+        >
+            <Html distanceFactor={radius * 100}
+                center={true}
+            >
+                <CircleDiv />
+            </Html>
+        </mesh>
+    )
+}
 
 function D2Layer(props) {
     const l_idx = props.l_idx
@@ -33,27 +50,26 @@ function D2Layer(props) {
     const ratio = props.ratio;
     // except batch size;
     const num_circles = props.size[1]
-    const bs = props.size.map(x => x)
+    const bs = props.size.map(x => x / ratio)
     // get radius 
-    const radius = bs[1] / num_circles / 2
 
     const color = props.color
+    const scaled_radius = circle_radius / ratio;
 
 
     const [active, setActive] = useState(false)
     const [hovered, setHover] = useState(false)
 
     const mesh = useRef();
+    const midle_box = [scaled_radius, scaled_radius, scaled_radius]
 
-    // creaate long box for 2d size data 
-    const box_lines = [radius * 2, bs[1], radius * 2]
-
-    const geometry = new THREE.BoxGeometry(box_lines[0], box_lines[1], box_lines[2]);
+    const geometry = new THREE.BoxGeometry(midle_box[0], midle_box[1], midle_box[2]);
     // get cube edge 
     const edges = new THREE.EdgesGeometry(geometry);
 
     const dispatch = useDispatch()
     const layer = useSelector(state => state.layer)
+
     useEffect(() => {
         if (layer.layer_idx == -1) {
             setActive(false)
@@ -62,94 +78,72 @@ function D2Layer(props) {
         }
 
     }, [layer])
+    // insert center
 
     // make multiple circles
     const circles = useMemo(() => {
-        const center = num_circles / 2;
-        let inner_circles=[];
-        for (let i = 0; i < num_circles; i++) {
+        let inner_circles = [];
+        const render_count = num_circles >20 ? 10: num_circles/2-0.5;
+        let right=num_circles-1;
+        let left =0;
+        for (let i = 0; i <= render_count; i++) {
+            //  if these are crossed, then break;
+            if (right< left ){
+                break; 
+            }
+            // make right element
             let new_point = cloneDeep(props.position);
-            new_point[1]+=(i-center*1)
-            inner_circles.push(
-                <mesh 
-                    {...props}
-                    position={new_point}
-                >
-                    <Html distanceFactor={100}
-                    center={true}
-                    >
-                        <CircleDiv />
-                    </Html>
-                </mesh>
-            )
+            new_point[1] += (i - render_count) * scaled_radius;
+            inner_circles.push(make_circle(props, scaled_radius, new_point));
+            // if it is not collapsed make left element
+            if (right!=left){
+                let new_point2 = cloneDeep(props.position);
+                new_point2[1] += (render_count-i) * scaled_radius;
+                inner_circles.push(make_circle(props, scaled_radius, new_point2));
+            }
+            right-=1;
+            left+=1;
         }
         return inner_circles;
     }, [props.position])
 
     return (
         <group>
-            {/* <mesh
-                {...props}
-                onPointerOver={(event) => {
-                    // if (!hovered){
-                    //   event.stopPropagation()
-                    // }
-                    setHover(true)
-                }
-                }
-                onPointerOut={(event) => {
-                    setHover(false)
-                }}
-                onClick={(event) => {
-                    if (!layer.is_dragging) {
-                        dispatch(choose_layer(g_idx, l_idx))
+            {
+                num_circles > 20 &&
+                <mesh
+                    {...props}
+                    onPointerOver={(event) => {
+                        // if (!hovered){
+                        //   event.stopPropagation()
+                        // }
+                        setHover(true)
                     }
-                }}
-            >
+                    }
+                    onPointerOut={(event) => {
+                        setHover(false)
+                    }}
+                    onClick={(event) => {
+                        if (!layer.is_dragging) {
+                            dispatch(choose_layer(g_idx, l_idx))
+                        }
+                    }}
+                >
 
-                <lineSegments
-                    ref={mesh}
-                    geometry={edges}
-                // scale={active ? 1.2 : 1}
-                >
-                    <lineBasicMaterial attach="material" color={hovered ? "blue" : "black"} />
-                </lineSegments>
-                <Box
+                    <lineSegments
+                        ref={mesh}
+                        geometry={edges}
                     // scale={active ? 1.2 : 1}
-                    args={box_lines}>
-                    <meshPhongMaterial color={color} opacity={0.5} transparent={true} />
-                </Box>
-            </mesh> */}
-            {/* <mesh 
-                    {...props}
-                    position={[0,0,0]}
-                >
-                    <Html distanceFactor={100}
-                    center={true}
                     >
-                        <CircleDiv />
-                    </Html>
-            </mesh>
-            <mesh 
-                    {...props}
-                    position={[0,2,0]}
-                >
-                    <Html distanceFactor={100}
-                    center={true}
-                    >
-                        <CircleDiv />
-                    </Html>
+                        <lineBasicMaterial attach="material" color={hovered ? "blue" : "black"} />
+                    </lineSegments>
+                    <Box
+                        // scale={active ? 1.2 : 1}
+                        args={midle_box}>
+                        <meshPhongMaterial color={color} opacity={0.5} transparent={true} />
+                    </Box>
                 </mesh>
-                <mesh 
-                    {...props}
-                    position={[0,4,0]}
-                >
-                    <Html distanceFactor={100}
-                    center={true}
-                    >
-                        <CircleDiv />
-                    </Html>
-                </mesh> */}
+            }
             {
                 circles
             }

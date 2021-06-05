@@ -127,9 +127,7 @@ impl Default for DebugValue {
         DebugValue::Undefined("".to_string())
     }
 }
-/// parser combinators are constructed from the bottom up:
-/// first we write parsers for the smallest elements (here a space character),
-/// then we'll combine them in larger parsers
+
 fn sp<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
     let chars = " \t\r\n";
 

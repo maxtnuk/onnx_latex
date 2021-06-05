@@ -8,7 +8,7 @@ pub struct ConstantOfShape {
 }
 
 impl_dyn_hash!(ConstantOfShape);
-impl MathGen for ConstantOfShape{}
+impl MathGen for ConstantOfShape {}
 
 impl Expansion for ConstantOfShape {
     fn name(&self) -> Cow<str> {

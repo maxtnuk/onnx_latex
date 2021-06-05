@@ -53,7 +53,7 @@ function get_width_with_size(sizes,ratio){
     // 2d data
     if (sizes.length<=2){
         // if you want, you can add ratio
-        return calc_2d_width(sizes[1],sizes[1]);
+        return calc_2d_width(ratio);
     }else if(sizes.length>=3){
         return sizes[sizes.length-1-2]/ratio
     }

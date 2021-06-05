@@ -9,7 +9,7 @@ use tract_core::ops::binary::BinMiniOp;
 #[derive(Debug, Clone, Hash)]
 pub struct InferenceBinOp(pub Box<dyn BinMiniOp>);
 impl_dyn_hash!(InferenceBinOp);
-impl MathGen for InferenceBinOp{}
+impl MathGen for InferenceBinOp {}
 
 impl Expansion for InferenceBinOp {
     fn name(&self) -> Cow<str> {
@@ -28,7 +28,9 @@ impl Expansion for InferenceBinOp {
         inputs: &'p [TensorProxy],
         outputs: &'p [TensorProxy],
     ) -> InferenceResult {
-        rules(s, inputs, outputs, move |typa, typb| self.0.result_datum_type(typa, typb))
+        rules(s, inputs, outputs, move |typa, typb| {
+            self.0.result_datum_type(typa, typb)
+        })
     }
 
     fn wire(
@@ -66,9 +68,11 @@ pub fn rules<'r, 'p: 'r, 's: 'r, DT: Fn(DatumType, DatumType) -> TractResult<Dat
             Ok(())
         })
     })?;
-    s.given_2(&inputs[0].datum_type, &inputs[1].datum_type, move |s, typa, typb| {
-        s.equals(&outputs[0].datum_type, dt(typa, typb)?)
-    })?;
+    s.given_2(
+        &inputs[0].datum_type,
+        &inputs[1].datum_type,
+        move |s, typa, typb| s.equals(&outputs[0].datum_type, dt(typa, typb)?),
+    )?;
     Ok(())
 }
 
@@ -78,7 +82,10 @@ pub fn wire_cast(
     inputs: &[OutletId],
     operating_datum_type: DatumType,
 ) -> TractResult<TVec<OutletId>> {
-    let facts = [target.outlet_fact(inputs[0])?.clone(), target.outlet_fact(inputs[1])?.clone()];
+    let facts = [
+        target.outlet_fact(inputs[0])?.clone(),
+        target.outlet_fact(inputs[1])?.clone(),
+    ];
     let mut wires = tvec!();
     for i in 0..inputs.len() {
         let mut wire = inputs[i];
@@ -144,10 +151,14 @@ impl EvalOp for Nary {
         let mut t = inputs[0].clone().into_tensor();
         for i in inputs[1..].into_iter() {
             let mut i = i.clone();
-            let operating_datum_type =
-                self.0.operating_datum_type(t.datum_type(), i.datum_type())?;
+            let operating_datum_type = self
+                .0
+                .operating_datum_type(t.datum_type(), i.datum_type())?;
             if i.datum_type() != operating_datum_type {
-                i = i.cast_to_dt(operating_datum_type)?.into_owned().into_arc_tensor();
+                i = i
+                    .cast_to_dt(operating_datum_type)?
+                    .into_owned()
+                    .into_arc_tensor();
             }
             if t.datum_type() != operating_datum_type {
                 t = t.cast_to_dt(operating_datum_type)?.into_owned();
@@ -172,11 +183,14 @@ impl InferenceRulesOp for Nary {
         s.equals(&inputs[0].datum_type, &outputs[0].datum_type)?;
         let n = inputs.len();
         s.equals_all((0..n).map(|i| (&inputs[i].datum_type).bex()).collect())?;
-        s.given_all(inputs.iter().map(|i| &i.shape), move |s, shapes: Vec<TVec<TDim>>| {
-            let out = tract_core::broadcast::multi_broadcast(&*shapes)
-                .with_context(|| format!("Failed to broadcast {:?}", &shapes))?;
-            s.equals(&outputs[0].shape, ShapeFactoid::from(out))
-        })
+        s.given_all(
+            inputs.iter().map(|i| &i.shape),
+            move |s, shapes: Vec<TVec<TDim>>| {
+                let out = tract_core::broadcast::multi_broadcast(&*shapes)
+                    .with_context(|| format!("Failed to broadcast {:?}", &shapes))?;
+                s.equals(&outputs[0].shape, ShapeFactoid::from(out))
+            },
+        )
     }
 
     fn to_typed(

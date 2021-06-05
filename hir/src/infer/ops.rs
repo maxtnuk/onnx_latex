@@ -35,9 +35,14 @@ pub trait InferenceOp:
         inputs: TVec<&InferenceFact>,
         outputs: TVec<&InferenceFact>,
         observed: TVec<&InferenceFact>,
-    ) -> TractResult<(TVec<InferenceFact>, TVec<InferenceFact>, TVec<InferenceFact>)> {
-        let (infered_inputs, infered_outputs, observed) =
-            self.infer_facts(inputs, outputs, observed).context("Infering facts")?;
+    ) -> TractResult<(
+        TVec<InferenceFact>,
+        TVec<InferenceFact>,
+        TVec<InferenceFact>,
+    )> {
+        let (infered_inputs, infered_outputs, observed) = self
+            .infer_facts(inputs, outputs, observed)
+            .context("Infering facts")?;
 
         if self.is_stateless() {
             if infered_inputs.iter().all(|i| i.value.is_concrete()) {
@@ -82,7 +87,11 @@ pub trait InferenceOp:
         inputs: TVec<&InferenceFact>,
         outputs: TVec<&InferenceFact>,
         observed: TVec<&InferenceFact>,
-    ) -> TractResult<(TVec<InferenceFact>, TVec<InferenceFact>, TVec<InferenceFact>)>;
+    ) -> TractResult<(
+        TVec<InferenceFact>,
+        TVec<InferenceFact>,
+        TVec<InferenceFact>,
+    )>;
 
     /// Early pass on inference model, after analyse, but before translation to
     /// typed network. Meant to deal with some framework idiosyncrasies that

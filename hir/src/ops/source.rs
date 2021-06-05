@@ -15,7 +15,6 @@ impl MathGen for Source {
     }
 }
 
-
 impl Op for Source {
     fn name(&self) -> Cow<str> {
         "Source".into()

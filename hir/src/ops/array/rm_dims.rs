@@ -9,7 +9,7 @@ pub struct RmDims {
 }
 
 impl_dyn_hash!(RmDims);
-impl MathGen for RmDims{}
+impl MathGen for RmDims {}
 impl RmDims {
     fn compute_shape<D: DimLike>(&self, input: &[D]) -> TVec<D> {
         let axes = self
@@ -41,10 +41,17 @@ impl Expansion for RmDims {
     ) -> InferenceResult {
         check_output_arity(&outputs, 1)?;
         s.equals(&outputs[0].datum_type, &inputs[0].datum_type)?;
-        s.equals(&outputs[0].rank, (&inputs[0].rank).bex() - self.axes.len() as i64)?;
+        s.equals(
+            &outputs[0].rank,
+            (&inputs[0].rank).bex() - self.axes.len() as i64,
+        )?;
         s.given(&inputs[0].rank, move |s, rank| {
             for axis in &self.axes {
-                let axis = if *axis < 0 { axis + rank as isize } else { *axis } as usize;
+                let axis = if *axis < 0 {
+                    axis + rank as isize
+                } else {
+                    *axis
+                } as usize;
                 s.equals(&inputs[0].shape[axis], 1.to_dim())?;
             }
             Ok(())
@@ -70,9 +77,11 @@ impl Expansion for RmDims {
             .sorted()
             .rev();
         for axis in axes {
-            wire =
-                target.wire_node(format!("{}.axis-{}", prefix, axis), AxisOp::Rm(axis), &[wire])?
-                    [0];
+            wire = target.wire_node(
+                format!("{}.axis-{}", prefix, axis),
+                AxisOp::Rm(axis),
+                &[wire],
+            )?[0];
         }
         Ok(tvec!(wire))
     }

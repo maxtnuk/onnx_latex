@@ -1,4 +1,3 @@
-
 use crate::infer::*;
 use crate::internal::*;
 use crate::utils::MathGen;
@@ -8,7 +7,7 @@ pub struct ScatterElements {
     axis: i64,
 }
 impl_dyn_hash!(ScatterElements);
-impl MathGen for ScatterElements{}
+impl MathGen for ScatterElements {}
 impl Expansion for ScatterElements {
     fn name(&self) -> Cow<str> {
         "ScatterElements".into()
@@ -39,7 +38,15 @@ impl Expansion for ScatterElements {
         inputs: &[OutletId],
     ) -> TractResult<TVec<OutletId>> {
         let input_rank = model.outlet_fact(inputs[0])?.rank();
-        let axis = if self.axis < 0 { self.axis + input_rank as i64 } else { self.axis } as usize;
-        model.wire_node(prefix, tract_core::ops::array::ScatterElements { axis }, inputs)
+        let axis = if self.axis < 0 {
+            self.axis + input_rank as i64
+        } else {
+            self.axis
+        } as usize;
+        model.wire_node(
+            prefix,
+            tract_core::ops::array::ScatterElements { axis },
+            inputs,
+        )
     }
 }

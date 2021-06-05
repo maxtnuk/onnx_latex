@@ -7,7 +7,7 @@ pub struct Shape {
     pub dt: DatumType,
 }
 impl_dyn_hash!(Shape);
-impl MathGen for Shape{}
+impl MathGen for Shape {}
 impl Expansion for Shape {
     fn name(&self) -> Cow<str> {
         "Shape".into()
@@ -24,7 +24,9 @@ impl Expansion for Shape {
         check_input_arity(&inputs, 1)?;
         check_output_arity(&outputs, 1)?;
         s.equals(&outputs[0].rank, 1)?;
-        s.given(&inputs[0].rank, move |s, r| s.equals(&outputs[0].shape[0], r.to_dim()))?;
+        s.given(&inputs[0].rank, move |s, r| {
+            s.equals(&outputs[0].shape[0], r.to_dim())
+        })?;
         s.given(&outputs[0].shape[0], move |s, r| {
             if let Ok(d) = r.to_i64() {
                 s.equals(&inputs[0].rank, d)?;
@@ -38,13 +40,20 @@ impl Expansion for Shape {
                 s.equals(&outputs[0].value, tensor)
             } else if self.dt == DatumType::I64 {
                 s.equals(&outputs[0].datum_type, DatumType::I64)?;
-                let tensor =
-                    rctensor1(&shape.iter().map(|i| i.to_i64().unwrap()).collect::<Vec<_>>());
+                let tensor = rctensor1(
+                    &shape
+                        .iter()
+                        .map(|i| i.to_i64().unwrap())
+                        .collect::<Vec<_>>(),
+                );
                 s.equals(&outputs[0].value, tensor)
             } else {
                 s.equals(&outputs[0].datum_type, DatumType::I32)?;
                 let tensor = rctensor1(
-                    &shape.iter().map(|i| i.to_i64().unwrap() as i32).collect::<Vec<_>>(),
+                    &shape
+                        .iter()
+                        .map(|i| i.to_i64().unwrap() as i32)
+                        .collect::<Vec<_>>(),
                 );
                 s.equals(&outputs[0].value, tensor)
             }

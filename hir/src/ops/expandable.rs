@@ -1,4 +1,7 @@
-use crate::{internal::*, utils::{FormulKind, MathGen}};
+use crate::{
+    internal::*,
+    utils::{FormulKind, MathGen},
+};
 use tract_core::internal::*;
 
 pub fn expand<E: Expansion>(e: E) -> Box<dyn InferenceOp> {
@@ -45,8 +48,6 @@ pub trait Expansion:
 
 tract_core::dyn_clone::clone_trait_object!(Expansion);
 
-
-
 impl Hash for Box<dyn Expansion> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::hash::Hash::hash(&self.type_id(), state);
@@ -81,7 +82,6 @@ impl MathGen for Box<dyn Expansion> {
         self.as_ref().gen_backward_value(inputs)
     }
 }
-
 
 impl Op for Box<dyn Expansion> {
     fn name(&self) -> Cow<str> {
@@ -139,7 +139,11 @@ impl InferenceRulesOp for Box<dyn Expansion> {
         for (ix, o) in outputs.iter().enumerate() {
             let expected = &node.outputs[ix].fact;
             let got = target.outlet_fact(*o)?;
-            if expected.clone().unify_with(&InferenceFact::from(got)).is_err() {
+            if expected
+                .clone()
+                .unify_with(&InferenceFact::from(got))
+                .is_err()
+            {
                 bail!("Output mismatch after rewiring expansion for output #{}: expected {:?} got {:?}", ix, expected, got);
             }
         }
@@ -166,7 +170,11 @@ where
         + Sync
         + 'static,
 {
-    expand(InferenceWrapper { typed_op: Box::new(op), rules: Arc::new(rules), outputs })
+    expand(InferenceWrapper {
+        typed_op: Box::new(op),
+        rules: Arc::new(rules),
+        outputs,
+    })
 }
 
 #[derive(Clone, new, Educe)]

@@ -1,16 +1,25 @@
-use tract_onnx::{Onnx, pb::ModelProto, tract_core::ops::nn::Sigmoid, tract_hir::{infer::GenericFactoid, internal::{Expansion, OpState, SessionState}, ops::{
+use tract_onnx::{
+    pb::ModelProto,
+    tract_core::ops::nn::Sigmoid,
+    tract_hir::{
+        infer::GenericFactoid,
+        internal::{Expansion, OpState, SessionState},
+        ops::{
             array::Pad,
             cnn::{MaxPool, SumPool},
             dummy::Dummy,
             element_wise::ElementWiseOp,
             konst::Const,
             source::Source,
-        }, utils::{is_weightable, mathgen_ele_op, FormulKind, MathGen}}};
+        },
+        utils::{is_weightable, mathgen_ele_op, FormulKind, MathGen},
+    },
+    Onnx,
+};
 
-use rand::prelude::*;
-use std::{hash::Hash, time::Instant};
 use std::{fmt::Debug, io::ErrorKind};
 use std::{fmt::Display, io::Read, path::Path};
+use std::{hash::Hash, time::Instant};
 use tract_onnx::tract_hir::utils::mathgen_op;
 use tract_onnx::{prelude::*, tract_hir::infer::InferenceOp};
 
@@ -32,6 +41,7 @@ type InferenceNode = Node<InferenceFact, Box<dyn InferenceOp>>;
 type InferencePlan =
     SimplePlan<InferenceFact, Box<dyn InferenceOp>, Graph<InferenceFact, Box<dyn InferenceOp>>>;
 
+// get value from layers 
 pub fn eval<F, O>(
     session_state: &mut SessionState,
     mut state: Option<&mut (dyn OpState + 'static)>,
@@ -49,6 +59,7 @@ where
     r
 }
 
+// onnx parsing engine 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LatexNode {
     pub index: usize,
@@ -66,7 +77,7 @@ pub struct LatexNode {
     pub op_attributes: DebugValue,
 }
 impl LatexNode {
-    // except prefix
+    // erase prefix
     pub fn erase_slash(&mut self) {
         let r = |s: &String| -> String { s.replace(r#"\\"#, r#"\"#) };
         self.symbol = r(&self.symbol);
@@ -76,6 +87,7 @@ impl LatexNode {
     }
 }
 
+// predefined symbol library 
 #[derive(Default, Clone)]
 pub struct SymbolLibrary {
     pub func: Formul,
@@ -84,8 +96,8 @@ pub struct SymbolLibrary {
 }
 
 impl SymbolLibrary {
+    // read from ron file 
     fn new() -> Self {
-        // println!("{}",concat!(env!("OUT_DIR"), "/formuls/formul.ron"));
         let func_info = node_info::read_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/formuls/formul.ron"
@@ -112,7 +124,7 @@ impl SymbolLibrary {
         let form = [&self.func, &self.etc, &self.activation];
         form.iter().filter_map(|x| x.gen_symbol(target).ok()).next()
     }
-
+    // generate weight symbol 
     fn gen_w_symbol_inner(&self, target: String, indexes: &Indexes, deeper: bool) -> String {
         let (_, _, underform) = self.get_symbol("_Under").unwrap();
         let under_splits = symbol_split(underform.formul.as_str()).unwrap();
@@ -131,6 +143,7 @@ impl SymbolLibrary {
             between_symbol
         }
     }
+    // generate error symbol 
     fn gen_error_symbol(&self, target: Vec<String>) -> String {
         let (e_symbol, _, _) = self.get_symbol("Error").unwrap();
         let splits = symbol_split(e_symbol.as_str()).unwrap();
@@ -146,7 +159,7 @@ impl SymbolLibrary {
         result += ")";
         result
     }
-    // gen proper symbol with level
+    // gen proper symbol based on level
     fn get_p0p1(
         &self,
         level: usize,
@@ -206,6 +219,7 @@ pub enum ErrorResultTo {
     Total,
     Innner(usize),
 }
+// search all op trait
 macro_rules! each_op {
     ($op: ident,[$($x:ident),*]) => {
        {
@@ -222,6 +236,7 @@ macro_rules! each_op {
        }
     };
 }
+// search all element op 
 macro_rules! each_ele_op {
     ($op: ident,[$($x:ident),*]) => {
        {
@@ -240,6 +255,7 @@ macro_rules! each_ele_op {
 }
 
 #[derive(Deserialize, Serialize)]
+// model proto struct 
 pub struct ParseModelResult {
     model: ModelProto,
     symbol: LatexResult,
@@ -255,11 +271,12 @@ impl ParseModelResult {
         serde_json::to_string(&self).unwrap()
     }
 }
-
+// from path
 pub fn parse_proto<P: AsRef<Path>>(path: P) -> TractResult<ModelProto> {
     let proto_file = tract_onnx::onnx().proto_model_for_path(path)?;
     Ok(proto_file)
 }
+// from file 
 pub fn parse_proto_from_file(reader: &mut dyn Read) -> TractResult<ModelProto> {
     let proto_file = tract_onnx::onnx().proto_model_for_read(reader)?;
     Ok(proto_file)
@@ -271,19 +288,13 @@ pub fn into_proto(input: String) -> TractResult<()> {
     // println!("{:?}",m);
     Ok(())
 }
+// just print model info 
 pub fn model_info<P: AsRef<Path>>(path: P) -> TractResult<()> {
     let model = tract_onnx::onnx()
         // load the model
         .model_for_path(path)?
-        // specify input type and shape
-        // optimize the model
-        // make the model runnable and fix its inputs and outputs
         .into_runnable()?;
-    // let mm = model.model();
-    // println!("input shape{}",mm.node(0).)
-    let mut inf_model=model.model.clone();
-    // inf_model.analyse(false)?;
-    // let inf_model=inf_model.clone().incorporate()?;
+    let inf_model = model.model.clone();
 
     for n in inf_model.nodes() {
         let op_name = n.op().name();
@@ -339,6 +350,7 @@ impl LatexEngine {
             math_op_vec: Vec::new(),
         }
     }
+    // read from file
     pub fn model_from_file(&self, reader: &mut dyn Read) -> TractResult<InferenceModel> {
         let s = self.engine.model_for_read(reader)?.into_runnable()?;
         Ok(s.model().clone())
@@ -350,6 +362,7 @@ impl LatexEngine {
         self.const_count = 0;
         self.activation_count = 0;
     }
+    // read from path 
     pub fn parse_from_path<P: AsRef<Path>>(
         &mut self,
         path: P,
@@ -367,6 +380,7 @@ impl LatexEngine {
         self.start_parse(&plan, many)
     }
 
+    // generate input and start parse 
     fn start_parse(
         &mut self,
         plan: &InferencePlan,
@@ -379,7 +393,7 @@ impl LatexEngine {
             .dims()
             .map(|s| format!("{}", s).as_str().parse().unwrap())
             .collect();
-        let total_elements: usize = input_shape.iter().product();
+        let _total_elements: usize = input_shape.iter().product();
 
         // let mut rng = thread_rng();
         // let vals: Vec<_> = (0..total_elements).map(|_| rng.gen::<f32>()).collect();
@@ -391,28 +405,22 @@ impl LatexEngine {
 
         Ok(result)
     }
-
-    pub fn parse_plan(
-        &mut self,
-        original: &InferencePlan,
-        mode: ParseMode,
-    ) -> LatexResult {
-        
+    //  start parse
+    pub fn parse_plan(&mut self, original: &InferencePlan, mode: ParseMode) -> LatexResult {
         let plan = original;
-        let mut inf_model=plan.model().clone();
-        // analyze input and fix order with obstinate 
+        let mut inf_model = plan.model().clone();
+        // analyze input and fix order with obstinate
         inf_model.analyse(true).unwrap();
 
         let mut senario = Vec::new();
         self.symbol_map.resize(inf_model.nodes.len(), None);
         self.math_op_vec.resize(inf_model.nodes.len(), None);
-        
-        let start = Instant::now();
-        let print_time =|s: &Instant,m:&str|{
-            let end = s.elapsed();
-        };
 
-        
+        let start = Instant::now();
+        let _print_time = |s: &Instant, _m: &str| {
+            let _end = s.elapsed();
+        };
+        // iterate node by order 
         for (_step, n) in plan.order.iter().enumerate() {
             let node = inf_model.node(*n);
             println!("node {}", *n);
@@ -448,29 +456,26 @@ impl LatexEngine {
                 }
             }
 
-            // let op_name = node.op().name();
-
-            // configure input nodes 
+            // configure input nodes
             for i in input_ids.iter() {
                 let undefined_node = inf_model.node(*i);
                 let _inner = self.configure_node(undefined_node, *i);
                 // print_time(&start,"input configure");
             }
             let mut input_shape_option: Option<Vec<usize>> = None;
+            // define input shape and output shape 
             for i in &node.inputs {
                 let fact = inf_model.outlet_fact(*i).unwrap();
 
                 let input_shape: Vec<usize> = fact
                     .shape
                     .dims()
-                    .map(|s| 
-                    match s{
-                        GenericFactoid::Only(x) => {
-                        x.to_i64().unwrap() as usize
-                    },
-                    GenericFactoid::Any => {
-                        unreachable!()
-                    }})
+                    .map(|s| match s {
+                        GenericFactoid::Only(x) => x.to_i64().unwrap() as usize,
+                        GenericFactoid::Any => {
+                            unreachable!()
+                        }
+                    })
                     .collect();
 
                 if let Some(l) = self.symbol_map[i.node].as_mut() {
@@ -488,19 +493,17 @@ impl LatexEngine {
                     }
                 }
             }
-            let output_shape: Vec<usize> =
-                node.outputs.iter().flat_map(|x| {
-                    x.fact.shape.dims()
-                }).map(|x| {
-                    match x{
-                        GenericFactoid::Only(x) => {
-                            x.to_i64().unwrap() as usize
-                        },
-                        GenericFactoid::Any => {
-                            unreachable!()
-                        },
+            let output_shape: Vec<usize> = node
+                .outputs
+                .iter()
+                .flat_map(|x| x.fact.shape.dims())
+                .map(|x| match x {
+                    GenericFactoid::Only(x) => x.to_i64().unwrap() as usize,
+                    GenericFactoid::Any => {
+                        unreachable!()
                     }
-                }).collect();
+                })
+                .collect();
             if let Some(form) = self.symbol_map[*n].as_mut() {
                 form.output_shape = output_shape.clone();
                 form.input_shape_ref = input_shape_option.clone();
@@ -519,12 +522,9 @@ impl LatexEngine {
                         Some(output_shape.clone()),
                     )
                 }
-                ParseMode::Full(many) => {
-                    self.rec_node(node, &inf_model, many,&start)
-                },
+                ParseMode::Full(many) => self.rec_node(node, &inf_model, many, &start),
             };
-            // print_time(&start,"forward parsing");
-            // node formul
+            // print_time(&start,"forward parsing")
 
             if let Some(form) = self.symbol_map[*n].as_mut() {
                 form.inputs = input_ids.clone();
@@ -533,7 +533,6 @@ impl LatexEngine {
         }
 
         // backward
-        // self.gen_back_total(model, latex_result.senario.clone());
         let mut latex_result = LatexResult::new(inf_model.nodes.len());
         latex_result.symbol_map = self.symbol_map.clone();
 
@@ -542,6 +541,7 @@ impl LatexEngine {
         self.flush();
         latex_result
     }
+    // generate boxed mathgen 
     fn boxed_mathgen(node: &InferenceNode) -> Box<dyn MathGen> {
         if let Some(e) = node.op_as::<Box<dyn Expansion>>().cloned() {
             Box::new(e)
@@ -561,6 +561,7 @@ impl LatexEngine {
             }
         }
     }
+    // iterate all total back propagation 
     pub fn gen_back_total(
         &self,
         symbol_result: &mut LatexResult,
@@ -575,17 +576,19 @@ impl LatexEngine {
             .unwrap();
 
         let math_ops = Self::math_op_vecs(&model);
-
+        // iterate senario 
         for i in senario.iter() {
             let _node = model.node(*i);
             let math_op = math_ops[*i].as_ref();
             let sym_node = symbol_result.symbol_map[*i].as_ref().unwrap();
 
             let kind = math_op.get_symbol_type(sym_node.extra_symbol.clone());
+            // if senario 
             if is_weightable(kind).is_none() {
                 println!("skip {}", *i);
                 continue;
             }
+            // get each backpropagation 
             let (s, v) = self.gen_each_back(
                 &math_ops,
                 &model,
@@ -602,6 +605,7 @@ impl LatexEngine {
         }
         Ok(())
     }
+    // generate boxed mathgen in model node 
     pub fn math_op_vecs(model: &InferenceModel) -> Vec<Box<dyn MathGen>> {
         model
             .nodes()
@@ -676,45 +680,49 @@ impl LatexEngine {
 
         Ok((math_op.gen_backward(e_symbol, down_symbol), backward))
     }
-
+    // recursive forward propgation 
     fn rec_node(
         &self,
         node: &InferenceNode,
         model: &InferenceModel,
         many: Option<usize>,
-        timer: &Instant
+        timer: &Instant,
     ) -> String {
-        let print_time =|s: &Instant,m:&str|{
+        let _print_time = |s: &Instant, m: &str| {
             let end = s.elapsed();
-            println!("{}: {:?}",m,end);
+            println!("{}: {:?}", m, end);
         };
         let sym_node = self.symbol_map[node.id].as_ref().unwrap();
-        if node.inputs.len()==0 {
+        if node.inputs.len() == 0 {
             return sym_node.symbol.clone();
         }
         match many {
             Some(x) if x == 0 => sym_node.symbol.clone(),
             _ => {
-                let next_many=many.clone().map(|x| x-1);
-                let ins = node.inputs.iter().map(|out| {
-                    let i_node = model.node(out.node);
-                    self.rec_node(i_node, model, next_many,timer)
-                }).collect();
+                let next_many = many.clone().map(|x| x - 1);
+                let ins = node
+                    .inputs
+                    .iter()
+                    .map(|out| {
+                        let i_node = model.node(out.node);
+                        self.rec_node(i_node, model, next_many, timer)
+                    })
+                    .collect();
                 // print_time(&timer,"input");
                 let n = node.id;
                 let _n_name = node.op().name();
 
-                // generate forward string with op 
+                // generate forward string with op
                 let node_op = self.math_op_vec[n].as_ref().unwrap();
                 let output_shape = sym_node.output_shape.clone();
                 let input_shape = sym_node.input_shape_ref.clone();
-                let result=node_op.gen_forward_value(ins, input_shape, Some(output_shape));
+                let result = node_op.gen_forward_value(ins, input_shape, Some(output_shape));
                 // print_time(&timer,"forward");
                 result
             }
         }
-
     }
+    // count up symbol 
     fn countup(&mut self, kind: &FormulKind) -> Option<usize> {
         match kind {
             FormulKind::Activation => {
@@ -736,6 +744,7 @@ impl LatexEngine {
             _ => None,
         }
     }
+    // create symbol node 
     pub fn configure_node(&mut self, node: &InferenceNode, index: usize) -> Option<FormulKind> {
         if self.symbol_map[index].is_some() {
             return None;
@@ -782,6 +791,7 @@ impl LatexEngine {
         }
         Some(kind)
     }
+    // expand diff chain based on layer info 
     pub fn expand_diff_symbol(
         &self,
         symbol_map: &Vec<Option<LatexNode>>,
@@ -790,6 +800,7 @@ impl LatexEngine {
         error_node: usize,
     ) -> DiffChainNode {
         match target {
+            // chain start
             DiffChainNode::Chain(v) => {
                 // it means activation find it
                 let mut sum_it = Vec::new();
@@ -1218,7 +1229,7 @@ impl LatexEngine {
         )
     }
 }
-
+// parsing result struct 
 #[derive(Default, Serialize, Deserialize)]
 pub struct LatexResult {
     pub symbol_map: Vec<Option<LatexNode>>,
@@ -1267,7 +1278,7 @@ impl LatexResult {
             .map_err(|e| std::io::Error::new(ErrorKind::InvalidInput, format!("{:?}", e)))
     }
 }
-
+// enum of forward propagation formula dpeth
 pub enum ParseMode {
     Brief,
     Full(Option<usize>),

@@ -4,7 +4,7 @@ use crate::{internal::*, utils::MathGen};
 pub struct Tile;
 
 impl_dyn_hash!(Tile);
-impl MathGen for Tile{}
+impl MathGen for Tile {}
 impl Expansion for Tile {
     fn name(&self) -> Cow<str> {
         "Tile".into()
@@ -40,9 +40,17 @@ impl Expansion for Tile {
         inputs: &[OutletId],
     ) -> TractResult<TVec<OutletId>> {
         if let Some(ref mult) = target.outlet_fact(inputs[1])?.konst {
-            let mult: TVec<usize> =
-                mult.cast_to::<i64>()?.as_slice::<i64>()?.iter().map(|i| *i as usize).collect();
-            target.wire_node(prefix, tract_core::ops::array::Tile::new(mult), &inputs[0..1])
+            let mult: TVec<usize> = mult
+                .cast_to::<i64>()?
+                .as_slice::<i64>()?
+                .iter()
+                .map(|i| *i as usize)
+                .collect();
+            target.wire_node(
+                prefix,
+                tract_core::ops::array::Tile::new(mult),
+                &inputs[0..1],
+            )
         } else {
             bail!("shape input is variable")
         }

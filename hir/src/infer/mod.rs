@@ -26,7 +26,11 @@ pub use wrap;
 
 pub fn check_input_arity(inputs: &[TensorProxy], expected: usize) -> TractResult<()> {
     if inputs.len() != expected {
-        bail!("Wrong input number. Rules expect {}, node has {}.", expected, inputs.len())
+        bail!(
+            "Wrong input number. Rules expect {}, node has {}.",
+            expected,
+            inputs.len()
+        )
     } else {
         Ok(())
     }
@@ -34,7 +38,11 @@ pub fn check_input_arity(inputs: &[TensorProxy], expected: usize) -> TractResult
 
 pub fn check_output_arity(outputs: &[TensorProxy], expected: usize) -> TractResult<()> {
     if outputs.len() != expected {
-        bail!("Wrong output number. Rules expect {}, node has {}.", expected, outputs.len())
+        bail!(
+            "Wrong output number. Rules expect {}, node has {}.",
+            expected,
+            outputs.len()
+        )
     } else {
         Ok(())
     }

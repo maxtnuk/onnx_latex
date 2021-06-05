@@ -10,10 +10,10 @@ fn main() -> TractResult<()> {
 fn test_part<F: AsRef<Path>>(path: F) -> TractResult<()> {
     let mut engine = LatexEngine::new();
 
-    let mut result = engine.parse_from_path(path.as_ref(), Some(4))?;
-    let proto = latex_gen::parse_proto(path)?;
+    let _result = engine.parse_from_path(path.as_ref(), Some(4))?;
+    let _proto = latex_gen::parse_proto(path)?;
     //  println!("{:?}", result.senario);
-    let indexes = Indexes::new(vec![10, 20, 30], vec![3, 4, 5]);
+    let _indexes = Indexes::new(vec![10, 20, 30], vec![3, 4, 5]);
     // let parse_result = engine.gen_back_total(&mut result, &proto, indexes, Some(3));
     // if parse_result.is_ok() {
     //     for i in 0..result.symbol_map.len() {
