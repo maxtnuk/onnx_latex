@@ -61,7 +61,7 @@ export const DragType={
 }
 // check each layer is end of group
 function check_end_group(op_name){
-  const end_list=["pool","clip"];
+  const end_list=["pool","clip","sigmoid"];
   const l_str=op_name.toLowerCase();
   return end_list.some((e)=>{return l_str.includes(e);})
 }
@@ -73,16 +73,17 @@ function configure_model(models){
     let layer_count=0;
     let groups=[]
     let layers=[]
-    for (const i of senario){
+    console.log(senario)
+    for (const [index,i] of senario.entries()){
       const each_layer=symbol_map[i];
-      console.log(each_layer)
       layers.push({
         ...each_layer,
         layer_num: layer_count,
       });
       layer_count+=1;
       // if it is end layer, then create new group
-      if (check_end_group(each_layer.op_name)){
+      if (check_end_group(each_layer.op_name) || index==senario.length-1){
+        console.log(index)
         let group= {
           group: group_count,
           layers: layers
@@ -95,7 +96,7 @@ function configure_model(models){
     }
     return groups;
 }
-
+export const term = 3;
 function MainPage() {
   // give mock data for test
 
@@ -115,12 +116,11 @@ function MainPage() {
   // first memo recieved data
   let group_data = useMemo(
     () =>{
-      // return configure_model(model_form);
+      return configure_model(model_form);
       // just for test 
-      return mock_d2
+      //return mock_d2
     },
   [model_form])
-  console.log(group_data)
 
   // state side menu open 
   const [open, setopen] = useState(false);
@@ -142,7 +142,6 @@ function MainPage() {
   let before_content=0;
   // visual scale
   const ratio=10;
-  const term = 3;
   // generate groups base on gorup_data 
   const groups=useMemo(() => {
     let group_layers = []
@@ -150,6 +149,7 @@ function MainPage() {
       let group_width=get_group_width(g.layers,ratio);
       group_layers.push(
         <GroupLayer
+          key={`group_${i}`}
           items={g.layers}
           ratio={ratio}
           group_idx={g.group}
@@ -183,11 +183,12 @@ return (
             <Controls />
             <ambientLight />
             <pointLight position={[10, 10, 10]} />
-              <>
+            
+              <group>
               {
                 groups
               }
-              </>
+              </group>
           </ReduxBridge>
         </Canvas>
       </VisContainer>
@@ -227,7 +228,7 @@ return (
           }}
         ></Joystick>
        {/* <ZoomBar/>  */}
-        <Button variant="contained" color="yellow"
+        <Button variant="contained" color={"primary"}
           onClick={(event) => {
             dispatch(reset_camera(true))
           }}

@@ -6,6 +6,8 @@ import { choose_layer } from 'api/layer';
 import { Box } from '@react-three/drei';
 import { Html } from '@react-three/drei';
 import { cloneDeep } from 'lodash';
+import D2Lines from './D2Lines'
+import LayerName from './LayerName';
 
 const CircleDiv = styled.div`
     border: 1px solid #000;
@@ -22,12 +24,40 @@ const CircleContainer = styled.div`
 const circle_radius = 10;
 
 export const term = 3;
+const mex_circles =16;
 
 export function calc_2d_width(ratio) {
-    return circle_radius / ratio + 2 * term;
+    const result =circle_radius / ratio + 2 * term;
+    return result
+}
+function circle_postions(base, many, scaled_radius) {
+    const render_count = many > mex_circles ? mex_circles /2 : many / 2 - 0.5;
+    let right = many - 1;
+    let left = 0;
+    let result = []
+    for (let i = 0; i <= render_count; i++) {
+        //  if these are crossed, then break;
+        if (right < left) {
+            break;
+        }
+        // make right element
+        let new_point = cloneDeep(base);
+        new_point[1] += (i - render_count) * scaled_radius;
+        result.push(new_point)
+
+        // if it is not collapsed make left element
+        if (right != left) {
+            let new_point2 = cloneDeep(base);
+            new_point2[1] += (render_count - i) * scaled_radius;
+            result.push(new_point2)
+        }
+        right -= 1;
+        left += 1;
+    }
+    return result;
 }
 
-function make_circle(props,radius,new_position){
+function make_circle(props, radius, new_position) {
     return (
         <mesh
             {...props}
@@ -51,6 +81,7 @@ function D2Layer(props) {
     // except batch size;
     const num_circles = props.size[1]
     const bs = props.size.map(x => x / ratio)
+    const layer_info = props.layer;
     // get radius 
 
     const color = props.color
@@ -69,6 +100,11 @@ function D2Layer(props) {
 
     const dispatch = useDispatch()
     const layer = useSelector(state => state.layer)
+    const model = useSelector(state => state.model)
+
+    const new_point= cloneDeep(props.position);
+    new_point[1]+=((num_circles > mex_circles ? mex_circles/2 : num_circles/2)+1)* scaled_radius
+
 
     useEffect(() => {
         if (layer.layer_idx == -1) {
@@ -79,38 +115,47 @@ function D2Layer(props) {
 
     }, [layer])
     // insert center
+    // it is just test data
+    const next_l_idx = layer_info.outputs[0];
+    const is_next_2d = next_l_idx !== undefined? model.symbol_map[next_l_idx].output_shape.length < 3:false;
 
     // make multiple circles
-    const circles = useMemo(() => {
+    const { circles, lines } = useMemo(() => {
         let inner_circles = [];
-        const render_count = num_circles >20 ? 10: num_circles/2-0.5;
-        let right=num_circles-1;
-        let left =0;
-        for (let i = 0; i <= render_count; i++) {
-            //  if these are crossed, then break;
-            if (right< left ){
-                break; 
+        const currnet_circle_pos = circle_postions(props.position, num_circles, scaled_radius);
+        // just insert test next d2 layer
+        const next_layer = is_next_2d ? model.symbol_map[next_l_idx] : undefined;
+        let next_pose = cloneDeep(props.position);
+        next_pose[0] += 2 * term
+        const next_circle_pos = is_next_2d ? circle_postions(next_pose, next_layer.output_shape[1], scaled_radius) : undefined;
+        let lines = []
+        for (const pos of currnet_circle_pos) {
+            inner_circles.push(make_circle(props, scaled_radius, pos));
+            if (is_next_2d&& !props.is_last) {
+                for (const nc of next_circle_pos) {
+                    lines.push(
+                        <D2Lines
+                            from={pos}
+                            to={nc}
+                            color={color}
+                        >
+
+                        </D2Lines>
+                    )
+                }
             }
-            // make right element
-            let new_point = cloneDeep(props.position);
-            new_point[1] += (i - render_count) * scaled_radius;
-            inner_circles.push(make_circle(props, scaled_radius, new_point));
-            // if it is not collapsed make left element
-            if (right!=left){
-                let new_point2 = cloneDeep(props.position);
-                new_point2[1] += (render_count-i) * scaled_radius;
-                inner_circles.push(make_circle(props, scaled_radius, new_point2));
-            }
-            right-=1;
-            left+=1;
         }
-        return inner_circles;
+
+        return {
+            circles: inner_circles,
+            lines: lines
+        };
     }, [props.position])
 
     return (
         <group>
             {
-                num_circles > 20 &&
+                num_circles > mex_circles &&
                 <mesh
                     {...props}
                     onPointerOver={(event) => {
@@ -147,6 +192,22 @@ function D2Layer(props) {
             {
                 circles
             }
+            {
+                lines
+            }
+            <mesh
+                {...props}
+                position={new_point}
+            >
+                <Html distanceFactor={50}
+                    center={true}
+                >
+                    <LayerName
+                        name={props.layer.symbol}
+                        color={color}
+                    />
+                </Html>
+            </mesh>
         </group>
     )
 }

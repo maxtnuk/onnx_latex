@@ -31,6 +31,9 @@ function configure_layer(op){
         case "Clip":
             color="#8b1c1c"
             break;
+        case "Sigmoid":
+            color="#1c8b60"
+            break;
       default:
         break;
     } 
@@ -44,7 +47,9 @@ export function get_group_width(layers,ratio){
     let sum_width=0;
     for (const i of layers){
         const layer_conf = configure_layer(i);
-        sum_width+=get_width_with_size(layer_conf.sizes)/ratio;
+        const layer_width=get_width_with_size(layer_conf.sizes,ratio);
+        sum_width+=layer_width;
+        
     }
     return sum_width;
 }
@@ -86,7 +91,7 @@ function GroupLayer(props) {
         // for name padding
         let each_namepadding=0;
         let continue_increase=false;
-        for (const i of items) {
+        for (const [index,i] of items.entries()) {
             const layer_conf = configure_layer(i);
             // get width without ratio 
             const layer_width=get_width_with_size(layer_conf.sizes,ratio);
@@ -104,11 +109,14 @@ function GroupLayer(props) {
                 each_namepadding+=1;
                 continue_increase=true;
             }
+            const is_last=index == items.length-1
             // 2d layer
             switch(layer_conf.sizes.length){
                 // 2d layer
                 case 2:
                     layerItems.push(<D2Layer
+                        is_last={is_last}
+                        key={`layer_${i.layer_num}`}
                         size={layer_conf.sizes}
                         color={layer_conf.color}
                         transparent={layer_conf.transparent}
@@ -125,6 +133,8 @@ function GroupLayer(props) {
                 // image network
                 case 4:
                     layerItems.push(<D3Layer
+                        is_last={is_last}
+                        key={`layer_${i.layer_num}`}
                         size={layer_conf.sizes}
                         color={layer_conf.color}
                         transparent={layer_conf.transparent}
