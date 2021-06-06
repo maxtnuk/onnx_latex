@@ -22,7 +22,7 @@ function LayerShape(props) {
         size_text += `${i}x`
     }
     const final_string = size_text.slice(0, -1);
-    
+
     const l_shape = useMemo(() => {
         return (
             <mesh
@@ -41,9 +41,11 @@ function LayerShape(props) {
     }, [sizes])
 
     return (
+      <>
         {
             l_shape
         }
+      </>
     )
 }
 export default LayerShape;

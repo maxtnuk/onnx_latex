@@ -44,9 +44,11 @@ function LayerName(props) {
     }, [position])
 
     return (
+       <>
         {
             l_name
         }
+       </>
     )
 }
 
