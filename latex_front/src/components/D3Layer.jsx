@@ -9,6 +9,7 @@ import { Html } from "@react-three/drei"
 import { useThree } from "@react-three/fiber";
 import LayerName from "./LayerName";
 import { cloneDeep } from "lodash";
+import LayerShape from "./LayerShape";
 
 // draw 3d layer 
 function D3Layer(props) {
@@ -54,6 +55,8 @@ function D3Layer(props) {
   const html_object=useRef();
   const new_point= cloneDeep(props.position);
   new_point[1]+=lines[1]/2+1
+  const new_point2=cloneDeep(new_point)
+  new_point2[1]=-new_point[1]
   // Return the view, these are regular Threejs elements expressed in JSX
   return (
     <group>
@@ -91,20 +94,22 @@ function D3Layer(props) {
         <meshPhongMaterial color={color} opacity={0.5} transparent={true}/>
       </Box>
     </mesh>
-    <mesh
-      {...props}
-      position={new_point}
-    >
-    <Html distanceFactor={50}
-        ref={html_object}
-        center={true}
-      >
-        <LayerName
+   <LayerName
           name={props.layer.op_name}
           color={color}
-        />
-      </Html>
-    </mesh>
+          sizes={props.size}
+          ratio={ratio}
+          position={
+              new_point
+          }
+      />
+    <LayerShape
+      sizes={props.size}
+      ratio={ratio}
+      position={
+          new_point2
+      }
+            />
     </group>
   )
 }

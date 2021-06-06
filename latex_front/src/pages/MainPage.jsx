@@ -96,7 +96,7 @@ function configure_model(models){
     }
     return groups;
 }
-export const term = 3;
+export const term = 30;
 function MainPage() {
   // give mock data for test
 
@@ -141,7 +141,7 @@ function MainPage() {
 
   let before_content=0;
   // visual scale
-  const ratio=10;
+  const ratio=5;
   // generate groups base on gorup_data 
   const groups=useMemo(() => {
     let group_layers = []
@@ -163,11 +163,11 @@ function MainPage() {
         const color=0x000000;
         
         group_layers.push(<arrowHelper 
-          args={[dir, origin, term, color]}>
+          args={[dir, origin, term/ratio, color]}>
            
           </arrowHelper>)
       }
-      before_content+=(group_width+term)
+      before_content+=(group_width+term/ratio)
     }
     return group_layers
   }, [group_data])

@@ -13,16 +13,19 @@ function configure_layer(op){
     let transparent=0.5
     
     switch (op.op_name) {
-        case "cnn":
-            color="yellow"
+        case "Conv":
+            color="#e66e0d"
             // transparent= base_transparent
             break;
-        case "sum_pool":
-            color="red"
+        case "ConvHir":
+            color="#f13c88"
+            break;
+        case "SumPool":
+            color="#5391f0"
             // transparent= base_transparent
             break;
-        case "max_pool":
-            color="green"
+        case "MaxPool":
+            color="#cdda17"
             // transparent= base_transparent
             break;
         case "Gemm":
@@ -33,6 +36,9 @@ function configure_layer(op){
             break;
         case "Sigmoid":
             color="#1c8b60"
+            break;
+        case "Flatten":
+            color="#0afce8"
             break;
       default:
         break;
@@ -84,9 +90,11 @@ function GroupLayer(props) {
     const ratio=props.ratio;
 
     const name_axis=10;
+    
 
-    const layers=useMemo(()=>{
+    const {layers,shape_layer}=useMemo(()=>{
         const layerItems = [];
+        const shape_layers= [];
         let pos_sum=0;
         // for name padding
         let each_namepadding=0;
@@ -110,6 +118,8 @@ function GroupLayer(props) {
                 continue_increase=true;
             }
             const is_last=index == items.length-1
+            const new_s_point=base_position+pos_sum+layer_width/2;
+            let height=0;
             // 2d layer
             switch(layer_conf.sizes.length){
                 // 2d layer
@@ -123,7 +133,7 @@ function GroupLayer(props) {
                         layer={i}
                         name_padding={each_namepadding}
                         ratio={ratio}
-                        position={[base_position+pos_sum+layer_width/2, 0, 0]}
+                        position={[new_s_point, 0, 0]}
                         l_idx={i.layer_num}
                         g_idx={group_idx}
                     />)
@@ -141,7 +151,7 @@ function GroupLayer(props) {
                         layer={i}
                         name_padding={each_namepadding}
                         ratio={ratio}
-                        position={[base_position+pos_sum+layer_width/2, 0, 0]}
+                        position={[new_s_point, 0, 0]}
                         l_idx={i.layer_num}
                         g_idx={group_idx}
                     />)
@@ -151,13 +161,17 @@ function GroupLayer(props) {
             }
             pos_sum+=layer_width;
         }
-        return layerItems
+        return {
+            layers: layerItems,
+            shape_layer: shape_layers
+            
+        }
     },[items]);
    
     return (
-        <>
+        <group>
             {layers}
-        </>
+        </group>
     )
 }
 export default GroupLayer;

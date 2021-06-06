@@ -8,6 +8,7 @@ import { Html } from '@react-three/drei';
 import { cloneDeep } from 'lodash';
 import D2Lines from './D2Lines'
 import LayerName from './LayerName';
+import LayerShape from './LayerShape';
 
 const CircleDiv = styled.div`
     border: 1px solid #000;
@@ -23,15 +24,15 @@ const CircleContainer = styled.div`
 
 const circle_radius = 10;
 
-export const term = 3;
-const mex_circles =16;
+export const term = 20;
+const mex_circles = 16;
 
 export function calc_2d_width(ratio) {
-    const result =circle_radius / ratio + 2 * term;
+    const result = circle_radius / ratio + 2 * term / ratio;
     return result
 }
 function circle_postions(base, many, scaled_radius) {
-    const render_count = many > mex_circles ? mex_circles /2 : many / 2 - 0.5;
+    const render_count = many > mex_circles ? mex_circles / 2 : many / 2 - 0.5;
     let right = many - 1;
     let left = 0;
     let result = []
@@ -102,9 +103,10 @@ function D2Layer(props) {
     const layer = useSelector(state => state.layer)
     const model = useSelector(state => state.model)
 
-    const new_point= cloneDeep(props.position);
-    new_point[1]+=((num_circles > mex_circles ? mex_circles/2 : num_circles/2)+1)* scaled_radius
-
+    const new_point = cloneDeep(props.position);
+    new_point[1] += ((num_circles > mex_circles ? mex_circles / 2 : num_circles / 2) + 1) * scaled_radius
+    const new_point2 = cloneDeep(new_point)
+    new_point2[1] = -new_point[1]
 
     useEffect(() => {
         if (layer.layer_idx == -1) {
@@ -117,7 +119,7 @@ function D2Layer(props) {
     // insert center
     // it is just test data
     const next_l_idx = layer_info.outputs[0];
-    const is_next_2d = next_l_idx !== undefined? model.symbol_map[next_l_idx].output_shape.length < 3:false;
+    const is_next_2d = next_l_idx !== undefined ? model.symbol_map[next_l_idx].output_shape.length < 3 : false;
 
     // make multiple circles
     const { circles, lines } = useMemo(() => {
@@ -126,12 +128,12 @@ function D2Layer(props) {
         // just insert test next d2 layer
         const next_layer = is_next_2d ? model.symbol_map[next_l_idx] : undefined;
         let next_pose = cloneDeep(props.position);
-        next_pose[0] += 2 * term
+        next_pose[0] += 2 * term / ratio
         const next_circle_pos = is_next_2d ? circle_postions(next_pose, next_layer.output_shape[1], scaled_radius) : undefined;
         let lines = []
         for (const pos of currnet_circle_pos) {
             inner_circles.push(make_circle(props, scaled_radius, pos));
-            if (is_next_2d&& !props.is_last) {
+            if (is_next_2d && !props.is_last) {
                 for (const nc of next_circle_pos) {
                     lines.push(
                         <D2Lines
@@ -195,19 +197,22 @@ function D2Layer(props) {
             {
                 lines
             }
-            <mesh
-                {...props}
-                position={new_point}
-            >
-                <Html distanceFactor={50}
-                    center={true}
-                >
-                    <LayerName
-                        name={props.layer.symbol}
-                        color={color}
-                    />
-                </Html>
-            </mesh>
+            <LayerName
+                name={props.layer.op_name}
+                color={color}
+                sizes={props.size}
+                ratio={ratio}
+                position={
+                    new_point
+                }
+            />
+            <LayerShape
+                sizes={props.size}
+                ratio={ratio}
+                position={
+                    new_point2
+                }
+            />
         </group>
     )
 }
