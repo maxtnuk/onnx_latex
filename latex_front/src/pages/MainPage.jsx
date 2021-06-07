@@ -24,7 +24,8 @@ import GroupLayer from "components/GroupLayers";
 import { get_group_width } from "components/GroupLayers";
 import { Html } from "@react-three/drei"
 import mock_d2 from "mock/D2LayerMock";
-
+import ProfileLayer from "components/ProfileLayer";
+import CloseIcon from '@material-ui/icons/Close';
 
 const MainaContainer = styled.div`
   overflow: hidden;
@@ -103,9 +104,6 @@ function MainPage() {
   const [layerInfo, setlayerInfo] = useState({
     group_idx: -1,
     layer_num: -1,
-    channel: -1,
-    width: -1,
-    height: -1,
   });
 
   const ReduxBridge = useContextBridge(ReactReduxContext);
@@ -164,7 +162,6 @@ function MainPage() {
         
         group_layers.push(<arrowHelper 
           args={[dir, origin, term/ratio, color]}>
-           
           </arrowHelper>)
       }
       before_content+=(group_width+term/ratio)
@@ -202,14 +199,20 @@ return (
         disableRestoreFocus={false}
       >
         <SideComponent>
-          <button
+          <CloseIcon
+            style={{
+              fontSize: "3em"
+            }}
             onClick={() => {
               dispatch(choose_layer(-1, -1));
               setopen(false);
             }}
+          />
+          <ProfileLayer
+            layer={layerInfo}
           >
-            Close
-          </button>
+
+          </ProfileLayer>
         </SideComponent>
       </SidePane>
       {/* controller part */}

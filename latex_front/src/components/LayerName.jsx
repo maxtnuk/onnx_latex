@@ -2,6 +2,8 @@ import { style } from "@material-ui/system";
 import styled from "styled-components";
 import { Html } from "@react-three/drei";
 import { useMemo } from "react";
+import { MathJaxContext } from "better-react-mathjax";
+import { MathJax } from "better-react-mathjax";
 
 const NameContainer = styled.div`
     border-radius: 25px;
@@ -34,9 +36,11 @@ function LayerName(props) {
                         }
                         }
                     >
-                        <h1>
-                            {name}
-                        </h1>
+                        <MathJaxContext>
+                            <MathJax>
+                                {`\\(${name}\\)`}
+                            </MathJax>
+                        </MathJaxContext>
                     </NameContainer>
                 </Html>
             </mesh>

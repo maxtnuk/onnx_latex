@@ -95,7 +95,7 @@ function D3Layer(props) {
       </Box>
     </mesh>
    <LayerName
-          name={props.layer.op_name}
+          name={props.layer.symbol}
           color={color}
           sizes={props.size}
           ratio={ratio}

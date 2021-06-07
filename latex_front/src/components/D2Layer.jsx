@@ -58,20 +58,6 @@ function circle_postions(base, many, scaled_radius) {
     return result;
 }
 
-function make_circle(props, radius, new_position) {
-    return (
-        <mesh
-            {...props}
-            position={new_position}
-        >
-            <Html distanceFactor={radius * 100}
-                center={true}
-            >
-                <CircleDiv />
-            </Html>
-        </mesh>
-    )
-}
 
 function D2Layer(props) {
     const l_idx = props.l_idx
@@ -132,7 +118,33 @@ function D2Layer(props) {
         const next_circle_pos = is_next_2d ? circle_postions(next_pose, next_layer.output_shape[1], scaled_radius) : undefined;
         let lines = []
         for (const pos of currnet_circle_pos) {
-            inner_circles.push(make_circle(props, scaled_radius, pos));
+            inner_circles.push(
+                <mesh
+                    {...props}
+                    position={pos}
+                >
+                    <Html distanceFactor={scaled_radius * 100}
+                        center={true}
+                    >
+                        <CircleDiv
+                            onPointerOver={(event) => {
+                                // if (!hovered){
+                                //   event.stopPropagation()
+                                // }
+                                setHover(true)
+                            }
+                            }
+                            onPointerOut={(event) => {
+                                setHover(false)
+                            }}
+                            onClick={(event) => {
+                                if (!layer.is_dragging) {
+                                    dispatch(choose_layer(g_idx, l_idx))
+                                }
+                            }}
+                        />
+                    </Html>
+                </mesh>);
             if (is_next_2d && !props.is_last) {
                 for (const nc of next_circle_pos) {
                     lines.push(
@@ -198,7 +210,7 @@ function D2Layer(props) {
                 lines
             }
             <LayerName
-                name={props.layer.op_name}
+                name={props.layer.symbol}
                 color={color}
                 sizes={props.size}
                 ratio={ratio}
