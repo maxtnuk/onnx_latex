@@ -72,6 +72,7 @@ function InitPage() {
 
   const spin_ref = useRef();
   const timer = useRef();
+  const [file, setfile] = useState({});
 
   useEffect(() => {
 
@@ -84,7 +85,7 @@ function InitPage() {
     settimerstart(false);
     if (res_model.senario!==undefined){
       console.log(res_model)
-      dispatch(set_model(res_model.senario,res_model.symbol_map))
+      dispatch(set_model(res_model.senario,res_model.symbol_map,file))
       history.push('/parse_model')
     }
   }, [res_model])
@@ -127,6 +128,7 @@ function InitPage() {
                 }
                 settimerstart(false);
               };
+              setfile(files[0]);
               settimerstart(true);
               setmodelRequest({
                 file: files[0],

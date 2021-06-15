@@ -59,3 +59,57 @@ export function useGetModel(model_request) {
     }, [model_request])
     return { error, during,res_model }
 }
+
+export function useBackwardModel(model_request) {
+    const [error, seterror] = useState({})
+    const [res_backward, setres_backward] = useState({})
+    const [during, setduring] = useState(false)
+
+    const delayed_fetch= useCallback(
+        debounce((request_content) => {
+            console.log("debounce")
+            send_model(request_content)
+        },500),
+        [],
+    )
+
+    const send_model = useCallback(
+        async (request_content) => {
+            // this mean initial request
+            setduring(true);
+            console.log(request_content)
+            if (request_content.depth===-1){
+                return
+            }
+            try {
+                let formdata = new FormData();
+                formdata.append('model',request_content.file)
+                formdata.append('symbol', request_content.symbol)
+                console.log(formdata)
+                let res = await client.post(
+                    "/backward", formdata, {
+                    params: {
+                        layer_node: request_content.layer_node,
+                        layer_idxs: request_content.layer_idxs,
+                        weight_idxs: request_content.weight_idxs,
+                        depth: request_content.depth,
+                    }
+                }
+                )
+                if (res.status == 200) {
+                    const data = res.data
+                    setres_backward(data)
+                }
+                setduring(false);
+            } catch (error) {
+                seterror(error);
+                setduring(false);   
+            }
+        }
+        , [model_request])
+    
+    useEffect(() => {
+        delayed_fetch(model_request);
+    }, [model_request])
+    return { error, during,res_backward }
+}

@@ -12,13 +12,29 @@ const NameContainer = styled.div`
     padding: 10px;
 `;
 
+const config = {
+    loader: { load: ["[tex]/html", '[tex]/color'] },
+    tex: {
+        packages: { "[+]": ["html", 'color'] },
+        autoload: { color: [] },
+        inlineMath: [
+            ["$", "$"],
+            ["\\(", "\\)"]
+        ],
+        displayMath: [
+            ["$$", "$$"],
+            ["\\[", "\\]"]
+        ]
+    }
+};
+
 
 function LayerName(props) {
     const name = props.name;
     const color = props.color;
     const position = props.position
     const ratio = props.ratio;
-    const term = 10;
+    const term = 5;
     position[1] += term / ratio
     const l_name = useMemo(() => {
         return (
@@ -36,9 +52,9 @@ function LayerName(props) {
                         }
                         }
                     >
-                        <MathJaxContext>
-                            <MathJax>
-                                {`\\(${name}\\)`}
+                        <MathJaxContext config={config}>
+                            <MathJax dynamic>
+                                {`\\({\\color{white} ${name}} \\)`}
                             </MathJax>
                         </MathJaxContext>
                     </NameContainer>
@@ -48,11 +64,11 @@ function LayerName(props) {
     }, [position])
 
     return (
-       <>
-        {
-            l_name
-        }
-       </>
+        <>
+            {
+                l_name
+            }
+        </>
     )
 }
 

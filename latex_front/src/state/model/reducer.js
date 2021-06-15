@@ -7,7 +7,8 @@ export default function model_reducer(state = INIT_MODEL, action) {
             return {
                 ...state,
                 senario: action.senario,
-                symbol_map: action.symbol_map
+                symbol_map: action.symbol_map,
+                file: action.file
             }
         default:
             return state

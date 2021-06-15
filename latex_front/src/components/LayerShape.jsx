@@ -5,9 +5,9 @@ import { useMemo } from "react";
 const ShapeNameDiv = styled.div`
     border-radius: 25px;
     background: #73AD21;
-    padding: 20px;
+    padding: 1em;
     color: #ffffff;
-    font-size: 1rem;
+    font-size: 0.5em;
     opacity: 0.8;
 `;
 
@@ -15,7 +15,7 @@ function LayerShape(props) {
     const sizes = props.sizes;
     const position = props.position;
     const ratio = props.ratio;
-    const term = 10;
+    const term = 5;
     position[1] -= term / ratio
     let size_text = "";
     for (const i of sizes) {

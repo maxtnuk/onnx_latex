@@ -5,6 +5,13 @@ import { MathJaxContext } from "better-react-mathjax";
 import { MathJax } from "better-react-mathjax";
 import { useSelector } from "react-redux";
 import { useCallback } from "react";
+import { useState } from "react";
+import { useBackwardModel } from "api/rest_api";
+import { useEffect } from "react";
+import { makeStyles } from "@material-ui/styles";
+import TextField from '@material-ui/core/TextField';
+import Button from '@material-ui/core/Button';
+
 const RootDiv = styled.div`
     display: flex;
     width: 100%;
@@ -37,6 +44,9 @@ const MathContainer = styled.div`
     display: flex;
     flex-direction: column;
     font-family: 'Roboto Condensed', sans-serif;
+    width: 90%;
+    justify-content: center;
+    font-size: 0.9em;
 `;
 const SubTitle = styled.div`
     padding: 5pt;
@@ -44,8 +54,24 @@ const SubTitle = styled.div`
     font-family: 'Roboto Condensed', sans-serif;
 `;
 
+//  backward styles 
+const useStyles = makeStyles((theme) => ({
+    root: {
+        '& > *': {
+            margin: 'ipt',
+            width: '25ch',
+        },
+    },
+}));
+
+const BackwardForm = styled.form`
+    display: flex;
+    flex-direction: row;
+`;
+
+// mathjax config
 const config = {
-    loader: { load: ["[tex]/html"] },
+    loader: { load: ["[tex]/html", "output/svg"] },
     tex: {
         packages: { "[+]": ["html"] },
         inlineMath: [
@@ -56,6 +82,9 @@ const config = {
             ["$$", "$$"],
             ["\\[", "\\]"]
         ]
+    },
+    svg: {
+        linebreaks: { automatic: true }
     }
 };
 function ProfileLayer(props) {
@@ -70,13 +99,38 @@ function ProfileLayer(props) {
         },
         [layer],
     )
-    
-    const shape_string = shape_print(layer.output_shape)
+
     const model = useSelector(state => state.model);
 
-    const {inputs,input_shape} = useMemo(() => {
+    const [modelRequest, setmodelRequest] = useState({
+        file: model.file,
+        layer_node: layer.index,
+        layer_idxs: {},
+        weight_idxs: {},
+        symbol: {
+            symbol_map: model.symbol_map,
+            senario: model.senario
+        },
+        depth: -1
+    })
+
+    const { error, during, res_backward } = useBackwardModel(modelRequest);
+
+    useEffect(() => {
+        console.log(error)
+    }, [error])
+
+    useEffect(() => {
+        console.log(res_backward)
+    }, [res_backward])
+
+    const shape_string = shape_print(layer.output_shape)
+    const [depth, setdepth] = useState(-1)
+    const [l_idx, setl_idx] = useState(-1)
+    const [w_idx, setw_idx] = useState(-1)
+    const { inputs, input_shape } = useMemo(() => {
         let inner_input_symbols = []
-        let inner_shape=[]
+        let inner_shape = []
         for (const i of layer.inputs) {
             const n_layer = model.symbol_map[i]
             inner_input_symbols.push(
@@ -86,14 +140,14 @@ function ProfileLayer(props) {
                 shape_print(n_layer.output_shape)
             )
         }
-        
+
         return {
             inputs: (
                 <MathJaxContext>
-                <MathJax hideUntilTypeset={"first"}>
-                    {`\\(${inner_input_symbols.toString()}\\)`}
-                </MathJax>
-            </MathJaxContext>
+                    <MathJax hideUntilTypeset={"first"}>
+                        {`\\(${inner_input_symbols.toString()}\\)`}
+                    </MathJax>
+                </MathJaxContext>
             ),
             input_shape: (
                 inner_shape.toString()
@@ -102,13 +156,19 @@ function ProfileLayer(props) {
     }, [layer])
     const output = useMemo(() => {
         const output_idx = layer.outputs[0];
+
         const output_layer = model.symbol_map[output_idx];
         return (
-            <MathJaxContext>
-                <MathJax hideUntilTypeset={"first"}>
-                    {`\\(${output_layer.symbol}\\)`}
-                </MathJax>
-            </MathJaxContext>
+            <>
+                {
+                    output_layer !== undefined &&
+                    <MathJaxContext>
+                        <MathJax hideUntilTypeset={"first"}>
+                            {`\\(${output_layer.symbol}\\)`}
+                        </MathJax>
+                    </MathJaxContext>
+                }
+            </>
         )
     }, [layer])
     const basic_infos = {
@@ -118,6 +178,10 @@ function ProfileLayer(props) {
         input_shape: input_shape,
         output: output
     }
+
+    const backward_styles = useStyles();
+
+    // View 
     return (
         <RootDiv>
             <LayerTitle>
@@ -140,17 +204,64 @@ function ProfileLayer(props) {
             <LayerAttribute>
 
             </LayerAttribute>
-            <SubTitle>
-                순전파
-            </SubTitle>
-            <MathJaxContext config={config}>
-                <MathJax hideUntilTypeset={"first"}>
-                    {`\\[${layer.symbol}=${layer.forward_value}\\]`}
-                </MathJax>
-            </MathJaxContext>
-            <SubTitle>
-                역전파
-            </SubTitle>
+            <MathContainer>
+                <SubTitle>
+                    순전파
+                </SubTitle>
+                <MathJaxContext config={config}>
+                    <MathJax hideUntilTypeset={"first"}>
+                        {`\\[${layer.symbol}=${layer.forward_value}\\]`}
+                    </MathJax>
+                </MathJaxContext>
+                <SubTitle>
+                    역전파
+                </SubTitle>
+                <BackwardForm
+                    className={backward_styles.root}
+                    noValidate autoComplete="off"
+                >
+                    <TextField
+                        type="text"
+                        label="depth"
+                        variant="outlined"
+                        defaultValue={-1}
+                        value={depth}
+                        onChange={({ target: { value } }) => setdepth(value)}
+                    />
+                    <TextField
+                        type="text"
+                        label="layer index"
+                        variant="outlined"
+                        defaultValue={0}
+                        value={l_idx}
+                        onChange={({ target: { value } }) => setl_idx(value)}
+                    />
+                    <TextField
+                        type="text"
+                        label="weight index"
+                        variant="outlined"
+                        defaultValue={0}
+                        value={w_idx}
+                        onChange={({ target: { value } }) => setw_idx(value)}
+                    />
+                </BackwardForm>
+                <Button
+                    // send backward
+                    onClick={() => {
+                        const w_str = JSON.parse(w_idx);
+                        const l_str = JSON.parse(l_idx);
+                        const int_depth = JSON.parse(depth);
+                        setmodelRequest({
+                            ...modelRequest,
+                            layer_idxs: l_str,
+                            weight_idxs: w_str,
+                            depth: int_depth
+                        })
+                    }}
+                >
+                    BackWard
+                </Button>
+            </MathContainer>
         </RootDiv>
     )
 }

@@ -97,7 +97,32 @@ function configure_model(models){
     }
     return groups;
 }
+const EndPoint = styled.div`
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #000;
+  height: 200px;
+  width: 200px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+`;  
+
 export const term = 30;
+
+function gen_arrow(from,ratio){
+  const dir = new THREE.Vector3(1,0,0);
+  const origin=new THREE.Vector3(from,0,0);
+  const color=0x000000;
+  return (
+    <>
+      <arrowHelper 
+          args={[dir, origin, term/ratio, color]}>
+          </arrowHelper>
+    </>
+  )
+}
+
 function MainPage() {
   // give mock data for test
 
@@ -143,6 +168,24 @@ function MainPage() {
   // generate groups base on gorup_data 
   const groups=useMemo(() => {
     let group_layers = []
+    // before start
+    const end_point_size=30;
+    group_layers.push(
+      <Html 
+      distanceFactor={end_point_size}
+      center={true}
+      >
+        <EndPoint>
+          <h2>
+            Start
+          </h2>
+        </EndPoint>
+      </Html>
+    )
+    let start_arrow=gen_arrow(before_content+end_point_size/ratio,ratio);
+    group_layers.push(start_arrow)
+    before_content+=(end_point_size/ratio+term/ratio)
+
     for (const [i,g] of group_data.entries()){
       let group_width=get_group_width(g.layers,ratio);
       group_layers.push(
@@ -155,17 +198,31 @@ function MainPage() {
         />
       )
       if (i!==group_data.length-1){
-        const from=before_content+group_width;
-        const dir = new THREE.Vector3(1,0,0);
-        const origin=new THREE.Vector3(from,0,0);
-        const color=0x000000;
-        
-        group_layers.push(<arrowHelper 
-          args={[dir, origin, term/ratio, color]}>
-          </arrowHelper>)
+        let arrow=gen_arrow(before_content+group_width,ratio);
+        group_layers.push(arrow)
+        before_content+=(group_width+term/ratio)
+      }else{
+        before_content+=group_width
       }
-      before_content+=(group_width+term/ratio)
+      
     }
+    // add end
+    let end_arrow=gen_arrow(before_content,ratio);
+    group_layers.push(end_arrow)
+    before_content+=(end_point_size/ratio+term/ratio)
+    group_layers.push(
+      <Html 
+      position={[before_content,0,0]}
+      distanceFactor={end_point_size}
+      center={true}
+      >
+        <EndPoint>
+          <h2>
+            End
+          </h2>
+        </EndPoint>
+      </Html>
+    )
     return group_layers
   }, [group_data])
  
