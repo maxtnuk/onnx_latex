@@ -1,5 +1,6 @@
 use crate::infer::*;
 use crate::internal::*;
+use crate::utils::FormulKind;
 use crate::utils::MathGen;
 
 #[derive(Debug, Clone, new, Default, Hash)]
@@ -7,7 +8,19 @@ pub struct Flatten {
     axis: i64,
 }
 impl_dyn_hash!(Flatten);
-impl MathGen for Flatten {}
+impl MathGen for Flatten {
+    fn get_symbol_type(&self, extra_symbol: Option<String>) -> FormulKind {
+        FormulKind::Flatten
+    }
+    fn gen_forward_value(
+        &self,
+        inputs: Vec<String>,
+        _input_shape: Option<Vec<usize>>,
+        _output_shape: Option<Vec<usize>>,
+    ) -> String {
+        format!(r#"Flatten({})"#,inputs[0])
+    }
+}
 
 impl Flatten {
     pub fn compute_shape<D: DimLike>(&self, shape: &[D]) -> TractResult<[D; 2]> {

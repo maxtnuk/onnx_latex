@@ -78,6 +78,7 @@ pub enum FormulKind {
     Const,
     MaxPool,
     SumPool,
+    Flatten
 }
 fn get_extra_symbol(original: String) -> FormulKind {
     match original.as_str() {
@@ -121,6 +122,9 @@ pub fn gen_symbol(symbol: Option<String>, n_type: FormulKind, idx: usize) -> Str
         }
         FormulKind::SumPool => {
             format!(r#"SumPool_{{{}}}"#, idx)
+        }
+        FormulKind::Flatten => {
+            format!(r#"Flatten_{{{}}}"#, idx)
         }
         _ => {
             if let Some(s) = symbol {

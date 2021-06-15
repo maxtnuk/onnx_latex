@@ -442,7 +442,10 @@ impl LatexEngine {
             let input_ids: Vec<usize> = node.inputs.iter().map(|x| x.node).collect();
             if let Some(fk) = node_kind {
                 match fk {
-                    FormulKind::Activation | FormulKind::Function | FormulKind::Cnn => {
+                    FormulKind::Input | FormulKind::Const| FormulKind::Bias| FormulKind::Weight=> {
+                        
+                    }
+                    _ => {
                         match fk {
                             FormulKind::Function => {}
                             FormulKind::Cnn => {
@@ -452,7 +455,6 @@ impl LatexEngine {
                         }
                         senario.push(*n);
                     }
-                    _ => {}
                 }
             }
 
